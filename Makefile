@@ -1,7 +1,7 @@
 NAME	= ircserv
 CXX		= c++
-CXXFLAGS= -Wall -Wextra -Werror -std=c++98
-SRC		= main.cpp
+CXXFLAGS= -Wall -Wextra -Werror -std=c++98 -Iinclude
+SRC		= main.cpp srcs/Server.cpp
 OBJ		= $(SRC:.cpp=.o)
 
 all: $(NAME)
