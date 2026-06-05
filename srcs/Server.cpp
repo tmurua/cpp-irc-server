@@ -6,7 +6,7 @@
 /*   By: tmurua <tmurua@student.42berlin.de>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 18:03:21 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/05 19:45:10 by tmurua           ###   ########.fr       */
+/*   Updated: 2026/06/05 22:15:10 by tmurua           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,10 +14,11 @@
 
 #include <cstdlib>		// std::strtol
 #include <stdexcept>	// std::invalid_argument, std::runtime_error
-#include <sys/socket.h>	// socket, setsocket, bind, AF_INET, SOL_SOCKET...
+#include <sys/socket.h>	// socket, setsocket, bind, listen 
 #include <unistd.h>		// close
 #include <cstring>		// std::memset
-#include <netinet/in.h>	// sockaddr_in, htons, htonl, INADDR_ANY
+#include <netinet/in.h>	// sockaddr_in, htons, INADDR_ANY
+#include <fcntl.h>		// fcntl, F_SETFL, O_NONBLOCK
 
 Server::Server(const std::string& port, const std::string& password)
 	: _port(parsePort(port)), _password(password), _serverSocket(-1) {
@@ -34,9 +35,11 @@ void	Server::start(){
 	createSocket();
 	enableAddressReuse();
 	bindSocketToPort();
+	startListening();
+	setSocketNonBlocking(_serverSocket);
 }
 
-// ask OS to create an IPv4(address) TCP(protocol) socket(communication endpoint)
+// ask OS to create an IPv4 TCP socket(communication endpoint)
 // AF_INET chooses IPv4; SOCK_STREAM requests a stream; 0 picks matching protocol
 void	Server::createSocket(){
 	_serverSocket = socket(AF_INET, SOCK_STREAM, 0); // returns fd on success
@@ -71,6 +74,19 @@ void	Server::bindSocketToPort(){
 	if (bind(_serverSocket, reinterpret_cast<sockaddr*>(&serverAddress),
 			sizeof(serverAddress)) == -1)
 		throw std::runtime_error("failed to bind server socket to port");
+}
+
+// turn _serverSocket into a listening socket for new client connections
+void	Server::startListening(){
+	// ask OS to queue the maximum number of pending connections it supports
+	if (listen(_serverSocket, SOMAXCONN) == -1) 
+		throw std::runtime_error("failed to listen for connections");
+}
+
+// configure the socket, so operations don't make the server wait
+void	Server::setSocketNonBlocking(int socketFd){
+	if (fcntl(socketFd, F_SETFL, O_NONBLOCK) == -1)
+		throw std::runtime_error("failed to set socket to non-blocking mode");
 }
 
 int	Server::parsePort(const std::string& port) const {

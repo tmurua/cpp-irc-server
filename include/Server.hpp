@@ -6,7 +6,7 @@
 /*   By: tmurua <tmurua@student.42berlin.de>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 17:43:29 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/05 17:07:20 by tmurua           ###   ########.fr       */
+/*   Updated: 2026/06/05 20:50:20 by tmurua           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -26,6 +26,8 @@ private:
 	void	createSocket();
 	void	enableAddressReuse();
 	void	bindSocketToPort();
+	void	startListening();
+	void	setSocketNonBlocking(int socketFd);
 
 public:
 	Server(const std::string& port, const std::string& password);
