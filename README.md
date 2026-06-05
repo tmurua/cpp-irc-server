@@ -87,6 +87,7 @@ TODO
 - [RFC 2811 — Internet Relay Chat: Channel Management](https://datatracker.ietf.org/doc/html/rfc2811)
 - [RFC 2812 — Internet Relay Chat: Client Protocol](https://datatracker.ietf.org/doc/html/rfc2812)
 - [RFC 2813 — Internet Relay Chat: Server Protocol](https://datatracker.ietf.org/doc/html/rfc2813)
+- [dd.ircdocs.horse] https://dd.ircdocs.horse/refs/commands/user
 
 ### Network Programming
 
