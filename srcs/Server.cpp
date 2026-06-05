@@ -6,28 +6,45 @@
 /*   By: tmurua <tmurua@student.42berlin.de>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 18:03:21 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/04 19:25:10 by tmurua           ###   ########.fr       */
+/*   Updated: 2026/06/05 16:25:10 by tmurua           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "Server.hpp"
 
 #include <cstdlib>		// std::strtol
-#include <stdexcept>	// std::invalid_argument
+#include <stdexcept>	// std::invalid_argument, std::runtime_error
+#include <sys/socket.h>	// socket, AF_INET, SOCK_STREAM
+#include <unistd.h>		// close
 
 Server::Server(const std::string& port, const std::string& password)
-	: _port(parsePort(port)), _password(password) {
+	: _port(parsePort(port)), _password(password), _serverSocket(-1) {
 	if (_password.empty())
 		throw std::invalid_argument("password cannot be empty");
 }
 
-Server::~Server() {}
+Server::~Server() {
+	if (_serverSocket != -1)
+		close(_serverSocket);
+}
+
+void	Server::start(){
+	createSocket();
+}
+
+// ask OS to create an IPv4(address) TCP(protocol) socket(communication endpoint)
+// AF_INET chooses IPv4; SOCK_STREAM requests a stream; 0 picks matching protocol
+void	Server::createSocket(){
+	_serverSocket = socket(AF_INET, SOCK_STREAM, 0); // returns fd on success
+	if (_serverSocket == -1) // socket() returns -1 on failure
+		throw std::runtime_error("failed to create server socket");
+}
 
 int	Server::parsePort(const std::string& port) const {
 	long	portNumber;
 
-if (port.empty())
-throw std::invalid_argument("port cannot be empty");
+	if (port.empty())
+		throw std::invalid_argument("port cannot be empty");
 	if (isOnlyDigits(port) == false)
 		throw std::invalid_argument("port must contain only digits");
 
