@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Command.hpp                                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: johartma <johartma@student.42.fr>          +#+  +:+       +#+        */
+/*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/05 16:15:57 by johartma          #+#    #+#             */
-/*   Updated: 2026/06/05 18:49:52 by johartma         ###   ########.fr       */
+/*   Updated: 2026/06/07 19:08:12 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,14 +15,19 @@
 # include <string>
 # include <vector>
 # include "CmdTypes.hpp"
+# include "Server.hpp"
 
 
-struct Command {
-    std::string                 _prefix;
-    CmdType::Type               _type;
-    std::vector<std::string>    _arguments;
-    std::string                 _trailing;
-    Command(const std::string& raw);
+class Command {
+	private:
+    	std::string                 _prefix;
+    	CmdType::Type               _type;
+    	std::vector<std::string>    _arguments;
+    	std::string                 _trailing;
+	public:	
+    	Command(const std::string& raw);
+		~Command();
+		int	execute(Server& serv);
 };
 
 #endif

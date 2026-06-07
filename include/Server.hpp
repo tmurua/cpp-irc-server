@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Server.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: johartma <johartma@student.42.fr>          +#+  +:+       +#+        */
+/*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 17:43:29 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/05 16:24:13 by johartma         ###   ########.fr       */
+/*   Updated: 2026/06/07 19:14:01 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,7 +14,7 @@
 # define SERVER_HPP
 
 # include <string>
-# include <map>
+# include "Client.hpp"
 
 
 class Server {
@@ -28,6 +28,8 @@ private:
 public:
 	Server(const std::string& port, const std::string& password);
 	~Server();
+	int		executecmd(const std::string& raw);
+	int		sndmsg(const Client& clnt, const std::string& msg);
 };
 
 # endif
