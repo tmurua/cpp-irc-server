@@ -21,6 +21,8 @@ int main(int argc, char **argv){
 	}
 	try {
 		Server server(argv[1], argv[2]);
+
+		server.start();
 	}
 	catch (const std::exception& error){
 		std::cerr << "Error: " << error.what() << std::endl;
