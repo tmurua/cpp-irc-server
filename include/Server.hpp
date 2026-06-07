@@ -6,7 +6,7 @@
 /*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 17:43:29 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/07 19:45:24 by johartma         ###   ########.fr       */
+/*   Updated: 2026/06/07 19:52:29 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,7 +14,8 @@
 # define SERVER_HPP
 
 # include <string>
-# include "Client.hpp"
+# include "Clients.hpp"
+# include "Channels.hpp"
 # include <poll.h>	// pollfd, POLLIN
 # include <vector>	// std::vector
 
@@ -25,6 +26,8 @@ private:
 	int					_serverSocket;
 	std::vector<pollfd>	_pollFds;
 	std::vector<int>	_clientSockets;
+	Channels			_channels;
+	Clients				_clients;
 
 	int		parsePort(const std::string& port) const;
 	bool	isOnlyDigits(const std::string& text) const;
