@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   CmdTypes.hpp                                       :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: johartma <johartma@student.42.fr>          +#+  +:+       +#+        */
+/*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/05 18:00:50 by johartma          #+#    #+#             */
-/*   Updated: 2026/06/05 18:45:13 by johartma         ###   ########.fr       */
+/*   Updated: 2026/06/08 10:24:47 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,7 +23,8 @@ namespace CmdType {
         TIME, CONNECT, TRACE, ADMIN, INFO, // Server Queries + Cmds
         SERVLIST, SQUERY, //Services
         WHO, WHOIS, WHOWAS, // User info
-        KILL, PING, PONG, ERROR // Misc
+        KILL, PING, PONG, ERROR, // Misc
+		UNKNOWN
     };
 };
 

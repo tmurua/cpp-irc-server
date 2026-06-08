@@ -6,7 +6,7 @@
 /*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/07 19:23:21 by johartma          #+#    #+#             */
-/*   Updated: 2026/06/07 19:26:58 by johartma         ###   ########.fr       */
+/*   Updated: 2026/06/07 22:24:08 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,14 +15,16 @@
 # include <map>
 # include <string>
 # include "Client.hpp"
+#include "Command/Command.hpp"
 
 class Clients {
 	private:
-		std::map<std::string, Client>	channels;
+		std::map<int, Client>	clients;
+		std::map<std::string, int> lut;
 	public:
 		Clients();
 		~Clients();
-		int			update_client(Client &clie);
+		int			update_client(Command &cmd);
 		int			remove_client(std::string name);
 		Client*		get_client(std::string name);
 };

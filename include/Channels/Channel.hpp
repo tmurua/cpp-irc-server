@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Channel.hpp                                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: johartma <johartma@student.42.fr>          +#+  +:+       +#+        */
+/*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/05 16:16:09 by johartma          #+#    #+#             */
-/*   Updated: 2026/06/05 18:53:04 by johartma         ###   ########.fr       */
+/*   Updated: 2026/06/07 22:19:36 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -27,7 +27,7 @@ class Channel {
         std::set<std::string>   _chan_ops;
         int                     _user_limit;
     public:
-        Channel();
+        Channel(std::string name);
         ~Channel();  
 };
 

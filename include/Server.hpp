@@ -6,7 +6,7 @@
 /*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 17:43:29 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/07 19:52:29 by johartma         ###   ########.fr       */
+/*   Updated: 2026/06/07 22:25:40 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,8 +14,8 @@
 # define SERVER_HPP
 
 # include <string>
-# include "Clients.hpp"
-# include "Channels.hpp"
+# include "Clients/Clients.hpp"
+# include "Channels/Channels.hpp"
 # include <poll.h>	// pollfd, POLLIN
 # include <vector>	// std::vector
 
@@ -45,8 +45,9 @@ public:
 	~Server();
 
 	void	start();
-	int		executecmd(const std::string& raw);
+	int		executecmd(int fd, const std::string& raw);
 	int		sndmsg(const Client& clnt, const std::string& msg);
+	void	disconnectClient(int fd);
 };
 
 # endif

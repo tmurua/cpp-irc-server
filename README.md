@@ -76,7 +76,14 @@ Incoming TCP data may arrive in fragments, so complete IRC commands must be rebu
 
 ## Testing
 
-TODO
+Unit tests cover command parsing (`CmdTypes.cpp`, `Command.cpp`).
+
+```bash
+make test       # build unit tests
+make test_run   # build and run
+```
+
+Integration tests against a live server are planned.
 
 ## Resources
 

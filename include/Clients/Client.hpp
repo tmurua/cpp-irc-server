@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Client.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: johartma <johartma@student.42.fr>          +#+  +:+       +#+        */
+/*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/05 16:16:03 by johartma          #+#    #+#             */
-/*   Updated: 2026/06/05 17:48:41 by johartma         ###   ########.fr       */
+/*   Updated: 2026/06/07 22:19:22 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -26,7 +26,7 @@ class Client {
         std::set<std::string>   _channels;       
     
     public:
-        Client();
+        Client(int fd);
         ~Client();
 };
 
