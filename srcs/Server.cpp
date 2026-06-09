@@ -6,20 +6,23 @@
 /*   By: tmurua <tmurua@student.42berlin.de>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 18:03:21 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/06 12:15:10 by tmurua           ###   ########.fr       */
+/*   Updated: 2026/06/08 08:45:10 by tmurua           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "Server.hpp"
 
-#include <cstdlib>		// std::strtol
+#include <iostream>
+#include <cstddef>		// std::size_t
 #include <stdexcept>	// std::invalid_argument, std::runtime_error
-#include <sys/socket.h>	// socket, setsockopt, bind, listen, accept 
 #include <unistd.h>		// close
+#include <cstdlib>		// std::strtol
+#include <sys/socket.h>	// socket, setsockopt, bind, listen, accept 
 #include <cstring>		// std::memset
 #include <netinet/in.h>	// sockaddr_in, htons, INADDR_ANY
 #include <fcntl.h>		// fcntl, F_SETFL, O_NONBLOCK
-#include <iostream>
+#include <poll.h>		// pollfd, POLLIN
+#include <cerrno>		// errno, EAGAIN, EWOULDBLOCK
 
 Server::Server(const std::string& port, const std::string& password)
 	: _port(parsePort(port)), _password(password), _serverSocket(-1) {
@@ -28,11 +31,12 @@ Server::Server(const std::string& port, const std::string& password)
 }
 
 Server::~Server() {
-	size_t	i;
+	std::size_t	i;
 
 	i = 0;
-	while (i < _clientSockets.size()){
-		close(_clientSockets[i]);
+	while (i < _pollFds.size()){
+		if (_pollFds[i].fd != _serverSocket)
+			close(_pollFds[i].fd);
 		i++;
 	}
 	if (_serverSocket != -1)
@@ -58,7 +62,7 @@ int	Server::parsePort(const std::string& port) const {
 }
 
 bool	Server::isOnlyDigits(const std::string& text) const {
-	size_t	i;
+	std::size_t	i;
 
 	i = 0;
 	while (i < text.length()){
@@ -142,34 +146,128 @@ void	Server::addSocketToPoll(int socketFd){
 	_pollFds.push_back(socketEvent);
 }
 
-// wait for socket activity and handle each event reported by poll()
+// wait for socket activity and pass each reported event to its handler
 void	Server::runEventLoop(){
-	int	readySockets;
+	int			readySockets;
+	std::size_t	i;
 
 	while (true){
-		// -1 makes poll() wait indefinitely until at least one socket is ready
+		// -1 makes poll() wait until at least one watched socket becomes ready
 		readySockets = poll(&_pollFds[0],
-				static_cast<nfds_t>(_pollFds.size()), -1);
+				static_cast<nfds_t>(_pollFds.size()), -1); // nfds_t: nb of fds
 		if (readySockets == -1)
 			throw std::runtime_error("poll failed");
 
-		if (_pollFds[0].revents & POLLIN)
-			acceptNewClient();
+		i = 0;
+		while (i < _pollFds.size()){
+			if (handlePollEvent(i) == true)
+				i++;
+		}
 	}
 }
 
-// accept one pending connection and store its new client socket
+// check if the reported event belongs to the server socket or a client socket
+bool	Server::handlePollEvent(std::size_t pollIndex){
+	short	returnedEvents;
+	bool	clientPollStillExists;
+
+	returnedEvents = _pollFds[pollIndex].revents;
+	if (returnedEvents == 0)
+		return (true);
+	if (_pollFds[pollIndex].fd == _serverSocket){
+		handleServerEvent(returnedEvents);
+		return (true);
+	}
+	clientPollStillExists = handleClientEvent(pollIndex, returnedEvents);
+	return (clientPollStillExists);
+}
+
+// bitwise &: non-zero when at least one requested event flag is set
+void	Server::handleServerEvent(short returnedEvents){
+	if (returnedEvents & (POLLERR | POLLHUP | POLLNVAL))
+		throw std::runtime_error("listening socket failed");
+	if (returnedEvents & POLLIN)
+		acceptNewClient();
+}
+
+// handle readable data, errors, and disconnections for one client socket
+bool	Server::handleClientEvent(std::size_t pollIndex, short returnedEvents){
+	if (returnedEvents & POLLIN){
+		// false means readFromClient() already removed this client
+		if (readFromClient(pollIndex) == false)
+			return (false);
+	}
+	if (returnedEvents & (POLLERR | POLLNVAL)){
+		disconnectClient(pollIndex);
+		return (false);
+	}
+	//	if POLLIN is also set, let recv() drain available data first;
+	//	a later recv() returning 0 will disconnect the client
+	if ((returnedEvents & POLLHUP) && (returnedEvents & POLLIN) == 0){
+		disconnectClient(pollIndex);
+		return (false);
+	}
+	return (true);
+}
+
+// accept all waiting client connections and register their sockets with poll()
 void	Server::acceptNewClient(){
 	int	clientSocket;
 
-	// NULL arguments mean we do not currently need the client's address info
-	clientSocket = accept(_serverSocket, NULL, NULL);
-	if (clientSocket == -1)
-		throw std::runtime_error("failed to accept client connection");
+	// NULL: client's address info not requested
+	while (true){
+		clientSocket = accept(_serverSocket, NULL, NULL); // accept returns new fd
+		if (clientSocket == -1){
+			// EAGAIN: no client connection is ready; try accept() again later
+			// EWOULDBLOCK: accept would have to wait, but socket is non-blocking
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+				return;
+			// any other errno value represents an actual failure
+			throw std::runtime_error("failed to accept client connection");
+		}
+		setSocketNonBlocking(clientSocket);
+		addSocketToPoll(clientSocket);
+		std::cout << "Client connected on fd " << clientSocket << std::endl;
+	}
+}
 
-	// store it first so the destructor closes it if later setup throws.
-	_clientSockets.push_back(clientSocket);
-	setSocketNonBlocking(clientSocket);
+// read one available chunk of data from a client socket
+bool	Server::readFromClient(std::size_t pollIndex){
+	char	buffer[513]; // 512 bytes for received data, plus 1 byte for '\0'
+	int		clientSocket;
+	ssize_t	bytesRead;
 
-	std::cout << "Client connected on fd " << clientSocket << std::endl;
+	clientSocket = _pollFds[pollIndex].fd;
+	// leave one byte free so the received text can be null-terminated
+	bytesRead = recv(clientSocket, buffer, 512, 0);
+
+	if (bytesRead == 0){ // if recv() returns 0, it means is reading no more bytes
+		disconnectClient(pollIndex);
+		return (false);
+	}
+	if (bytesRead == -1){ // recv() could not read data
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+			return (true);
+		std::cerr << "Failed to read from client fd "
+			<< clientSocket << std::endl;
+		disconnectClient(pollIndex);
+		return (false);
+	}
+
+	buffer[bytesRead] = '\0';
+	std::cout << "Client " << clientSocket << ": " << buffer;
+
+	return (true);
+}
+
+// close a client socket and remove it from the poll list
+void	Server::disconnectClient(std::size_t pollIndex){
+	int	clientSocket;
+
+	clientSocket = _pollFds[pollIndex].fd;
+	close(clientSocket);
+	_pollFds.erase(_pollFds.begin() + pollIndex);
+
+	std::cout << "Client disconnected from fd "
+		<< clientSocket << std::endl;
 }

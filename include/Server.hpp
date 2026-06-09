@@ -6,7 +6,7 @@
 /*   By: tmurua <tmurua@student.42berlin.de>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 17:43:29 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/06 10:50:30 by tmurua           ###   ########.fr       */
+/*   Updated: 2026/06/09 07:30:30 by tmurua           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,8 +14,9 @@
 #define SERVER_HPP
 
 #include <string>
-# include <poll.h>	// pollfd, POLLIN
-# include <vector>	// std::vector
+#include <poll.h>	// pollfd, POLLIN
+#include <vector>	// std::vector
+#include <cstddef>	// std::size_t
 
 class Server {
 private:
@@ -23,7 +24,6 @@ private:
 	std::string			_password;
 	int					_serverSocket;
 	std::vector<pollfd>	_pollFds;
-	std::vector<int>	_clientSockets;
 
 	int		parsePort(const std::string& port) const;
 	bool	isOnlyDigits(const std::string& text) const;
@@ -34,7 +34,12 @@ private:
 	void	setSocketNonBlocking(int socketFd);
 	void	addSocketToPoll(int socketFd);
 	void	runEventLoop();
+	bool	handlePollEvent(std::size_t pollIndex);
+	void	handleServerEvent(short returnedEvents);
+	bool	handleClientEvent(std::size_t pollIndex, short returnedEvents);
 	void	acceptNewClient();
+	bool	readFromClient(std::size_t pollIndex);
+	void	disconnectClient(std::size_t pollIndex);
 
 public:
 	Server(const std::string& port, const std::string& password);
