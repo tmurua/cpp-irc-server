@@ -6,7 +6,7 @@
 /*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 17:43:29 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/07 22:25:40 by johartma         ###   ########.fr       */
+/*   Updated: 2026/06/09 07:30:30 by tmurua           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,6 +18,7 @@
 # include "Channels/Channels.hpp"
 # include <poll.h>	// pollfd, POLLIN
 # include <vector>	// std::vector
+# include <cstddef>	// std::size_t
 
 class Server {
 private:
@@ -25,7 +26,6 @@ private:
 	std::string			_password;
 	int					_serverSocket;
 	std::vector<pollfd>	_pollFds;
-	std::vector<int>	_clientSockets;
 	Channels			_channels;
 	Clients				_clients;
 
@@ -38,7 +38,12 @@ private:
 	void	setSocketNonBlocking(int socketFd);
 	void	addSocketToPoll(int socketFd);
 	void	runEventLoop();
+	bool	handlePollEvent(std::size_t pollIndex);
+	void	handleServerEvent(short returnedEvents);
+	bool	handleClientEvent(std::size_t pollIndex, short returnedEvents);
 	void	acceptNewClient();
+	bool	readFromClient(std::size_t pollIndex);
+	void	disconnectClient(std::size_t pollIndex);
 
 public:
 	Server(const std::string& port, const std::string& password);
