@@ -6,7 +6,7 @@
 /*   By: tmurua <tmurua@student.42berlin.de>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 17:43:29 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/08 12:50:30 by tmurua           ###   ########.fr       */
+/*   Updated: 2026/06/09 07:30:30 by tmurua           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -34,6 +34,9 @@ private:
 	void	setSocketNonBlocking(int socketFd);
 	void	addSocketToPoll(int socketFd);
 	void	runEventLoop();
+	bool	handlePollEvent(std::size_t pollIndex);
+	void	handleServerEvent(short returnedEvents);
+	bool	handleClientEvent(std::size_t pollIndex, short returnedEvents);
 	void	acceptNewClient();
 	bool	readFromClient(std::size_t pollIndex);
 	void	disconnectClient(std::size_t pollIndex);

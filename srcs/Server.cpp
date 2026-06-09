@@ -6,7 +6,7 @@
 /*   By: tmurua <tmurua@student.42berlin.de>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 18:03:21 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/08 16:50:10 by tmurua           ###   ########.fr       */
+/*   Updated: 2026/06/08 08:45:10 by tmurua           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,6 +21,7 @@
 #include <cstring>		// std::memset
 #include <netinet/in.h>	// sockaddr_in, htons, INADDR_ANY
 #include <fcntl.h>		// fcntl, F_SETFL, O_NONBLOCK
+#include <poll.h>		// pollfd, POLLIN
 #include <cerrno>		// errno, EAGAIN, EWOULDBLOCK
 
 Server::Server(const std::string& port, const std::string& password)
@@ -145,13 +146,13 @@ void	Server::addSocketToPoll(int socketFd){
 	_pollFds.push_back(socketEvent);
 }
 
-// wait for socket activity and handle each event reported by poll()
+// wait for socket activity and pass each reported event to its handler
 void	Server::runEventLoop(){
 	int			readySockets;
-	std::size_t	i;	
+	std::size_t	i;
 
 	while (true){
-		// -1 makes poll() wait indefinitely until at least one socket is ready
+		// -1 makes poll() wait until at least one watched socket becomes ready
 		readySockets = poll(&_pollFds[0],
 				static_cast<nfds_t>(_pollFds.size()), -1); // nfds_t: nb of fds
 		if (readySockets == -1)
@@ -159,35 +160,75 @@ void	Server::runEventLoop(){
 
 		i = 0;
 		while (i < _pollFds.size()){
-			if (_pollFds[i].revents & POLLIN){ // bitwise &: POLLIN is in .revents
-				if (_pollFds[i].fd == _serverSocket)
-					acceptNewClient();
-				else if(readFromClient(i) == false)
-					continue;
-			}
-			i++;
+			if (handlePollEvent(i) == true)
+				i++;
 		}
 	}
 }
 
-// accept one waiting client and add its socket to poll()
+// check if the reported event belongs to the server socket or a client socket
+bool	Server::handlePollEvent(std::size_t pollIndex){
+	short	returnedEvents;
+	bool	clientPollStillExists;
+
+	returnedEvents = _pollFds[pollIndex].revents;
+	if (returnedEvents == 0)
+		return (true);
+	if (_pollFds[pollIndex].fd == _serverSocket){
+		handleServerEvent(returnedEvents);
+		return (true);
+	}
+	clientPollStillExists = handleClientEvent(pollIndex, returnedEvents);
+	return (clientPollStillExists);
+}
+
+// bitwise &: non-zero when at least one requested event flag is set
+void	Server::handleServerEvent(short returnedEvents){
+	if (returnedEvents & (POLLERR | POLLHUP | POLLNVAL))
+		throw std::runtime_error("listening socket failed");
+	if (returnedEvents & POLLIN)
+		acceptNewClient();
+}
+
+// handle readable data, errors, and disconnections for one client socket
+bool	Server::handleClientEvent(std::size_t pollIndex, short returnedEvents){
+	if (returnedEvents & POLLIN){
+		// false means readFromClient() already removed this client
+		if (readFromClient(pollIndex) == false)
+			return (false);
+	}
+	if (returnedEvents & (POLLERR | POLLNVAL)){
+		disconnectClient(pollIndex);
+		return (false);
+	}
+	//	if POLLIN is also set, let recv() drain available data first;
+	//	a later recv() returning 0 will disconnect the client
+	if ((returnedEvents & POLLHUP) && (returnedEvents & POLLIN) == 0){
+		disconnectClient(pollIndex);
+		return (false);
+	}
+	return (true);
+}
+
+// accept all waiting client connections and register their sockets with poll()
 void	Server::acceptNewClient(){
 	int	clientSocket;
 
 	// NULL: client's address info not requested
-	clientSocket = accept(_serverSocket, NULL, NULL); // accept() returns new fd
-	if (clientSocket == -1){
-		// EAGAIN: no client connection is ready; try accept() again later
-		// EWOULDBLOCK: accept() would have to wait, but the socket is non-blocking
-		if (errno == EAGAIN || errno == EWOULDBLOCK)
-			return;
-		// any other errno value represents an actual failure
-		throw std::runtime_error("failed to accept client connection");
+	while (true){
+		clientSocket = accept(_serverSocket, NULL, NULL); // accept returns new fd
+		if (clientSocket == -1){
+			// EAGAIN: no client connection is ready; try accept() again later
+			// EWOULDBLOCK: accept would have to wait, but socket is non-blocking
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+				return;
+			// any other errno value represents an actual failure
+			throw std::runtime_error("failed to accept client connection");
+		}
+		setSocketNonBlocking(clientSocket);
+		addSocketToPoll(clientSocket);
+		std::cout << "Client connected on fd " << clientSocket << std::endl;
 	}
-	setSocketNonBlocking(clientSocket);
-	addSocketToPoll(clientSocket);
-
-	std::cout << "Client connected on fd " << clientSocket << std::endl;
 }
 
 // read one available chunk of data from a client socket
