@@ -6,7 +6,7 @@
 /*   By: tmurua <tmurua@student.42berlin.de>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 18:03:21 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/08 08:45:10 by tmurua           ###   ########.fr       */
+/*   Updated: 2026/06/10 20:45:10 by tmurua           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -227,19 +227,19 @@ void	Server::acceptNewClient(){
 		}
 		setSocketNonBlocking(clientSocket);
 		addSocketToPoll(clientSocket);
+		_receiveBuffers[clientSocket] = "";
 		std::cout << "Client connected on fd " << clientSocket << std::endl;
 	}
 }
 
-// read one available chunk of data from a client socket
+// read one available data chunk from a client socket and to client's buffer
 bool	Server::readFromClient(std::size_t pollIndex){
-	char	buffer[513]; // 512 bytes for received data, plus 1 byte for '\0'
+	char	buffer[512]; 
 	int		clientSocket;
 	ssize_t	bytesRead;
 
 	clientSocket = _pollFds[pollIndex].fd;
-	// leave one byte free so the received text can be null-terminated
-	bytesRead = recv(clientSocket, buffer, 512, 0);
+	bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
 
 	if (bytesRead == 0){ // if recv() returns 0, it means is reading no more bytes
 		disconnectClient(pollIndex);
@@ -253,10 +253,7 @@ bool	Server::readFromClient(std::size_t pollIndex){
 		disconnectClient(pollIndex);
 		return (false);
 	}
-
-	buffer[bytesRead] = '\0';
-	std::cout << "Client " << clientSocket << ": " << buffer;
-
+	bufferClientInput(clientSocket, buffer,	static_cast<std::size_t>(bytesRead));
 	return (true);
 }
 
@@ -265,9 +262,46 @@ void	Server::disconnectClient(std::size_t pollIndex){
 	int	clientSocket;
 
 	clientSocket = _pollFds[pollIndex].fd;
+	_receiveBuffers.erase(clientSocket);
 	close(clientSocket);
 	_pollFds.erase(_pollFds.begin() + pollIndex);
 
 	std::cout << "Client disconnected from fd "
 		<< clientSocket << std::endl;
+}
+
+// preserve received data between recv() calls until full command lines exist
+void	Server::bufferClientInput(int clientSocket,	const char* data,
+									std::size_t dataLength){
+	_receiveBuffers[clientSocket].append(data, dataLength);
+	processClientBuffer(clientSocket);
+}
+
+// extract every newline-terminated command and keep any incomplete remainder
+void	Server::processClientBuffer(int clientSocket){
+	std::string&	clientBuffer = _receiveBuffers[clientSocket];
+	std::string		command;
+	std::size_t		lineEnd;
+
+	lineEnd = clientBuffer.find('\n');
+	while (lineEnd != std::string::npos){
+		command = clientBuffer.substr(0, lineEnd);
+		clientBuffer.erase(0, lineEnd + 1);
+
+		// IRC normally uses "\r\n"; also tolerate commands ending only in "\n"
+		if (command.empty() == false
+			&& command[command.length() - 1] == '\r')
+			command.erase(command.length() - 1);
+		if (command.empty() == false)
+			handleCompleteCommand(clientSocket, command);
+
+		lineEnd = clientBuffer.find('\n');
+	}
+}
+
+// TEMPORARY integration point until parser is merged
+void	Server::handleCompleteCommand(int clientSocket,
+		const std::string& command){
+	std::cout << "Complete command from client "
+		<< clientSocket << ": " << command << std::endl;
 }
