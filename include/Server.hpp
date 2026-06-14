@@ -6,7 +6,7 @@
 /*   By: tmurua <tmurua@student.42berlin.de>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 17:43:29 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/10 19:30:30 by tmurua           ###   ########.fr       */
+/*   Updated: 2026/06/14 13:30:30 by tmurua           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -26,6 +26,7 @@ private:
 	int							_serverSocket;
 	std::vector<pollfd>			_pollFds;
 	std::map<int, std::string>	_receiveBuffers;
+	std::map<int, std::string>	_sendBuffers;
 
 	int		parsePort(const std::string& port) const;
 	bool	isOnlyDigits(const std::string& text) const;
@@ -47,12 +48,15 @@ private:
 	void	processClientBuffer(int clientSocket);
 	void	handleCompleteCommand(int clientSocket,
 			const std::string& command);
+	bool	sendBufferedData(std::size_t pollIndex);
+	void	setWriteMonitoring(int clientSocket, bool enabled);
 
 public:
 	Server(const std::string& port, const std::string& password);
 	~Server();
 
 	void	start();
+	void	queueMessage(int clientSocket, const std::string& message);
 };
 
 #endif

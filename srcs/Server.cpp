@@ -6,7 +6,7 @@
 /*   By: tmurua <tmurua@student.42berlin.de>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 18:03:21 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/10 20:45:10 by tmurua           ###   ########.fr       */
+/*   Updated: 2026/06/14 17:45:10 by tmurua           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -17,7 +17,7 @@
 #include <stdexcept>	// std::invalid_argument, std::runtime_error
 #include <unistd.h>		// close
 #include <cstdlib>		// std::strtol
-#include <sys/socket.h>	// socket, setsockopt, bind, listen, accept 
+#include <sys/socket.h>	// socket, setsockopt, bind, listen, accept, recv, send 
 #include <cstring>		// std::memset
 #include <netinet/in.h>	// sockaddr_in, htons, INADDR_ANY
 #include <fcntl.h>		// fcntl, F_SETFL, O_NONBLOCK
@@ -201,6 +201,10 @@ bool	Server::handleClientEvent(std::size_t pollIndex, short returnedEvents){
 		disconnectClient(pollIndex);
 		return (false);
 	}
+	if (returnedEvents & POLLOUT){
+		if (sendBufferedData(pollIndex) == false)
+			return (false);
+	}
 	//	if POLLIN is also set, let recv() drain available data first;
 	//	a later recv() returning 0 will disconnect the client
 	if ((returnedEvents & POLLHUP) && (returnedEvents & POLLIN) == 0){
@@ -228,6 +232,7 @@ void	Server::acceptNewClient(){
 		setSocketNonBlocking(clientSocket);
 		addSocketToPoll(clientSocket);
 		_receiveBuffers[clientSocket] = "";
+		_sendBuffers[clientSocket] = "";
 		std::cout << "Client connected on fd " << clientSocket << std::endl;
 	}
 }
@@ -263,6 +268,7 @@ void	Server::disconnectClient(std::size_t pollIndex){
 
 	clientSocket = _pollFds[pollIndex].fd;
 	_receiveBuffers.erase(clientSocket);
+	_sendBuffers.erase(clientSocket);
 	close(clientSocket);
 	_pollFds.erase(_pollFds.begin() + pollIndex);
 
@@ -299,9 +305,75 @@ void	Server::processClientBuffer(int clientSocket){
 	}
 }
 
+// store outgoing data until poll() reports that the socket is ready to write
+void	Server::queueMessage(int clientSocket, const std::string& message){
+	if (message.empty())
+		return;
+	if (_sendBuffers.find(clientSocket) == _sendBuffers.end())
+		return;
+
+	// the caller provides the complete IRC message, including "\r\n"
+	_sendBuffers[clientSocket].append(message);
+	setWriteMonitoring(clientSocket, true);
+}
+
+// control whether poll() should report when a client socket can accept data
+void	Server::setWriteMonitoring(int clientSocket, bool enabled){
+	std::size_t	i;
+
+	i = 0;
+	while (i < _pollFds.size()){
+		if (_pollFds[i].fd == clientSocket){
+			if (enabled)
+				_pollFds[i].events |= POLLOUT;
+			else
+				_pollFds[i].events &= ~POLLOUT;
+			return;
+		}
+		i++;
+	}
+}
+
+// send as much queued data as the non-blocking client socket currently accepts
+bool	Server::sendBufferedData(std::size_t pollIndex){
+	std::map<int, std::string>::iterator	bufferIt;
+	int									clientSocket;
+	ssize_t								bytesSent;
+
+	clientSocket = _pollFds[pollIndex].fd;
+	bufferIt = _sendBuffers.find(clientSocket);
+
+	if (bufferIt == _sendBuffers.end())
+		return (true);
+	if (bufferIt->second.empty()){
+		setWriteMonitoring(clientSocket, false);
+		return (true);
+	}
+
+	bytesSent = send(clientSocket, bufferIt->second.c_str(),
+			bufferIt->second.length(), 0);
+	if (bytesSent == -1){
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+			return (true);
+		std::cerr << "Failed to send data to client fd "
+			<< clientSocket << std::endl;
+		disconnectClient(pollIndex);
+		return (false);
+	}
+
+	// send() may write only part of the message, so keep the remainder.
+	bufferIt->second.erase(0, static_cast<std::size_t>(bytesSent));
+
+	if (bufferIt->second.empty())
+		setWriteMonitoring(clientSocket, false);
+
+	return (true);
+}
+
 // TEMPORARY integration point until parser is merged
 void	Server::handleCompleteCommand(int clientSocket,
 		const std::string& command){
 	std::cout << "Complete command from client "
 		<< clientSocket << ": " << command << std::endl;
+	queueMessage(clientSocket, "Received: " + command + "\r\n");
 }
