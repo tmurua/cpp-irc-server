@@ -11,13 +11,14 @@
 /* ************************************************************************** */
 
 #include "Server.hpp"
+#include "Command/Command.hpp"
 
 #include <iostream>
 #include <cstddef>		// std::size_t
 #include <stdexcept>	// std::invalid_argument, std::runtime_error
 #include <unistd.h>		// close
 #include <cstdlib>		// std::strtol
-#include <sys/socket.h>	// socket, setsockopt, bind, listen, accept 
+#include <sys/socket.h>	// socket, setsockopt, bind, listen, accept, send
 #include <cstring>		// std::memset
 #include <netinet/in.h>	// sockaddr_in, htons, INADDR_ANY
 #include <fcntl.h>		// fcntl, F_SETFL, O_NONBLOCK
@@ -270,4 +271,28 @@ void	Server::disconnectClient(std::size_t pollIndex){
 
 	std::cout << "Client disconnected from fd "
 		<< clientSocket << std::endl;
+}
+
+// entry point for the dispatch pipeline: build a Command from a raw line
+// and let it route to the matching handler (see srcs/Command/Command.cpp)
+int	Server::executecmd(int fd, const std::string& raw){
+	try {
+		Command	cmd(fd, raw);
+		return cmd.execute(*this);
+	} catch (const Command::MalformedException&) {
+		return 1;
+	}
+}
+
+
+Clients&	Server::getClients(){
+	return _clients;
+}
+
+Channels&	Server::getChannels(){
+	return _channels;
+}
+
+const std::string&	Server::getPassword() const {
+	return _password;
 }

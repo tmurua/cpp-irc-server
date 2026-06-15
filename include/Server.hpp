@@ -53,6 +53,11 @@ public:
 	int		executecmd(int fd, const std::string& raw);
 	int		sndmsg(const Client& clnt, const std::string& msg);
 	void	disconnectClient(int fd);
+
+	// Accessors used by command handlers (see include/Command/Handlers.hpp)
+	Clients&				getClients();
+	Channels&				getChannels();
+	const std::string&		getPassword() const;
 };
 
 # endif

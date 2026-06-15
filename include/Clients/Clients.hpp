@@ -24,8 +24,11 @@ class Clients {
 	public:
 		Clients();
 		~Clients();
-		int			update_client(Command &cmd);
-		int			remove_client(std::string name);
+		int			add_client(Client &client);
+		int			update_nick(int fd, std::string nick);
+		int			remove_client(int fd);
 		Client*		get_client(std::string name);
+		Client*		get_client_fd(int fd);
+
 };
 # endif

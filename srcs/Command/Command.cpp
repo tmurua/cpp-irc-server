@@ -11,9 +11,11 @@
 /* ************************************************************************** */
 
 #include "Command/Command.hpp"
+#include "Command/Handlers.hpp"
 #include "Server.hpp"
 #include <string>
 #include <sstream>
+#include <map>
 
 
 static void remove_end(std::string& raw) {
@@ -95,8 +97,38 @@ const std::string&	Command::getTrailing() const
 	return _trailing;
 }
 
+typedef int (*Handler)(Command&, Server&);
+
+static std::map<CmdType::Type, Handler>&	get_handlers()
+{
+	static std::map<CmdType::Type, Handler>	handlers;
+
+	if (handlers.empty())
+	{
+		handlers[CmdType::PASS]    = &cmd_pass;
+		handlers[CmdType::NICK]    = &cmd_nick;
+		handlers[CmdType::USER]    = &cmd_user;
+		handlers[CmdType::QUIT]    = &cmd_quit;
+		handlers[CmdType::JOIN]    = &cmd_join;
+		handlers[CmdType::PART]    = &cmd_part;
+		handlers[CmdType::TOPIC]   = &cmd_topic;
+		handlers[CmdType::KICK]    = &cmd_kick;
+		handlers[CmdType::INVITE]  = &cmd_invite;
+		handlers[CmdType::MODE]    = &cmd_mode;
+		handlers[CmdType::PRIVMSG] = &cmd_privmsg;
+		handlers[CmdType::NOTICE]  = &cmd_notice;
+		handlers[CmdType::PING]    = &cmd_ping;
+		handlers[CmdType::PONG]    = &cmd_pong;
+	}
+	return handlers;
+}
+
 int	Command::execute(Server& serv)
 {
-	(void)serv;
-	return 0;
+	std::map<CmdType::Type, Handler>&			handlers = get_handlers();
+	std::map<CmdType::Type, Handler>::iterator	it = handlers.find(_type);
+
+	if (it == handlers.end())
+		return cmd_unknown(*this, serv);
+	return it->second(*this, serv);
 }

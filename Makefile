@@ -1,13 +1,23 @@
 NAME	= ircserv
 CXX		= c++
 CXXFLAGS= -Wall -Wextra -Werror -std=c++98 -Iinclude -Itests
-SRC		= main.cpp srcs/Server.cpp
+SRC		= main.cpp srcs/Server.cpp srcs/Reply.cpp \
+		  srcs/Channels/Channel.cpp srcs/Channels/Channels.cpp \
+		  srcs/Clients/Client.cpp srcs/Clients/Clients.cpp \
+		  srcs/Command/Command.cpp srcs/Command/CmdTypes.cpp \
+		  srcs/Command/handlers/auth.cpp srcs/Command/handlers/channel.cpp \
+		  srcs/Command/handlers/messaging.cpp srcs/Command/handlers/misc.cpp
 OBJ		= $(SRC:.cpp=.o)
 
 TEST_NAME	= run_tests
-TEST_SRC	= tests/test_main.cpp tests/unit/test_cmdtypes.cpp tests/unit/test_command.cpp
+TEST_SRC	= tests/test_main.cpp tests/unit/test_cmdtypes.cpp tests/unit/test_command.cpp \
+			  tests/unit/test_channels.cpp tests/unit/test_clients.cpp
 TEST_OBJ	= $(TEST_SRC:.cpp=.o)
-TEST_LIB	= srcs/Command/CmdTypes.cpp srcs/Command/Command.cpp
+TEST_LIB	= srcs/Reply.cpp srcs/Command/CmdTypes.cpp srcs/Command/Command.cpp \
+			  srcs/Command/handlers/auth.cpp srcs/Command/handlers/channel.cpp \
+			  srcs/Command/handlers/messaging.cpp srcs/Command/handlers/misc.cpp \
+			  srcs/Channels/Channel.cpp srcs/Channels/Channels.cpp \
+			  srcs/Clients/Client.cpp srcs/Clients/Clients.cpp
 TEST_LIBOBJ	= $(TEST_LIB:.cpp=.o)
 
 all: $(NAME)

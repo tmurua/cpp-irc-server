@@ -19,8 +19,11 @@ class Client {
     private:
         int                     _fd;
         std::string             _nickname; //max 9 characters
+        std::string             _username;
+        std::string             _realname;
         std::string             _hostname;
         std::string             _server;
+        bool                    _authenticated;
         bool                    _registered;
         bool                    _isop;
         std::set<std::string>   _channels;       
@@ -28,6 +31,34 @@ class Client {
     public:
         Client(int fd);
         ~Client();
+
+        // Getters
+        int                             getFd() const;
+        const std::string&              getNickname() const;
+        const std::string&              getUsername() const;
+        const std::string&              getRealname() const;
+        const std::string&              getHostname() const;
+        const std::string&              getServer() const;
+        bool                            isRegistered() const;
+        bool                            isOp() const;
+        bool                            isAuthenticated() const;
+        const std::set<std::string>&    getChannels() const;
+
+        // Setters
+        int     setNickname(const std::string& nickname);
+        void    setUsername(const std::string& username);
+        void    setRealname(const std::string& realname);
+        void    setHostname(const std::string& hostname);
+        void    setServer(const std::string& server);
+        void    setRegistered(bool registered);
+        bool    setAuthenticated(bool authenticated);
+
+        void    setOp(bool isop);
+
+        // Channel membership
+        void    joinChannel(const std::string& channel);
+        void    leaveChannel(const std::string& channel);
+        bool    inChannel(const std::string& channel) const;
 };
 
 #endif
