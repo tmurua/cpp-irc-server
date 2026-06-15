@@ -6,7 +6,7 @@
 /*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 18:03:21 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/15 17:37:05 by johartma         ###   ########.fr       */
+/*   Updated: 2026/06/15 18:24:57 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -229,19 +229,19 @@ void	Server::acceptNewClient(){
 		}
 		setSocketNonBlocking(clientSocket);
 		addSocketToPoll(clientSocket);
+		_receiveBuffers[clientSocket] = "";
 		std::cout << "Client connected on fd " << clientSocket << std::endl;
 	}
 }
 
-// read one available chunk of data from a client socket
+// read one available data chunk from a client socket and to client's buffer
 bool	Server::readFromClient(std::size_t pollIndex){
-	char	buffer[513]; // 512 bytes for received data, plus 1 byte for '\0'
+	char	buffer[512];
 	int		clientSocket;
 	ssize_t	bytesRead;
 
 	clientSocket = _pollFds[pollIndex].fd;
-	// leave one byte free so the received text can be null-terminated
-	bytesRead = recv(clientSocket, buffer, 512, 0);
+	bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
 
 	if (bytesRead == 0){ // if recv() returns 0, it means is reading no more bytes
 		disconnectClient(pollIndex);
@@ -255,24 +255,7 @@ bool	Server::readFromClient(std::size_t pollIndex){
 		disconnectClient(pollIndex);
 		return (false);
 	}
-
-	buffer[bytesRead] = '\0';
-
-	std::string raw(buffer, bytesRead);
-	std::size_t pos = 0;
-	while (pos < raw.size()) {
-		std::size_t end = raw.find('\n', pos);
-		std::string line = (end == std::string::npos)
-			? raw.substr(pos) : raw.substr(pos, end - pos);
-		if (!line.empty()) {
-			executecmd(clientSocket, line);
-			if (_clients.get_client_fd(clientSocket) == NULL)
-				return (false);
-		}
-		if (end == std::string::npos)
-			break;
-		pos = end + 1;
-	}
+	bufferClientInput(clientSocket, buffer, static_cast<std::size_t>(bytesRead));
 	return (true);
 }
 
@@ -301,6 +284,7 @@ void	Server::disconnectClient(std::size_t pollIndex){
 	}
 
 	_clients.remove_client(clientSocket);
+	_receiveBuffers.erase(clientSocket);
 	close(clientSocket);
 	_pollFds.erase(_pollFds.begin() + pollIndex);
 
@@ -315,6 +299,7 @@ int	Server::sndmsg(const Client& clnt, const std::string& msg) {
 
 void	Server::disconnectClient(int fd) {
 	_clients.remove_client(fd);
+	_receiveBuffers.erase(fd);
 	for (std::size_t i = 0; i < _pollFds.size(); i++) {
 		if (_pollFds[i].fd == fd) {
 			close(fd);
@@ -322,6 +307,40 @@ void	Server::disconnectClient(int fd) {
 			return;
 		}
 	}
+}
+
+// preserve received data between recv() calls until full command lines exist
+void	Server::bufferClientInput(int clientSocket, const char* data,
+									std::size_t dataLength){
+	_receiveBuffers[clientSocket].append(data, dataLength);
+	processClientBuffer(clientSocket);
+}
+
+// extract every newline-terminated command and keep any incomplete remainder
+void	Server::processClientBuffer(int clientSocket){
+	std::string&	clientBuffer = _receiveBuffers[clientSocket];
+	std::string		command;
+	std::size_t		lineEnd;
+
+	lineEnd = clientBuffer.find('\n');
+	while (lineEnd != std::string::npos){
+		command = clientBuffer.substr(0, lineEnd);
+		clientBuffer.erase(0, lineEnd + 1);
+
+		// IRC normally uses "\r\n"; also tolerate commands ending only in "\n"
+		if (command.empty() == false
+			&& command[command.length() - 1] == '\r')
+			command.erase(command.length() - 1);
+		if (command.empty() == false)
+			handleCompleteCommand(clientSocket, command);
+
+		lineEnd = clientBuffer.find('\n');
+	}
+}
+
+void	Server::handleCompleteCommand(int clientSocket,
+		const std::string& command){
+	executecmd(clientSocket, command);
 }
 
 // entry point for the dispatch pipeline: build a Command from a raw line
@@ -334,7 +353,6 @@ int	Server::executecmd(int fd, const std::string& raw){
 		return 1;
 	}
 }
-
 
 Clients&	Server::getClients(){
 	return _clients;

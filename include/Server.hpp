@@ -6,7 +6,7 @@
 /*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 17:43:29 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/09 07:30:30 by tmurua           ###   ########.fr       */
+/*   Updated: 2026/06/15 18:24:27 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,13 +19,15 @@
 # include <poll.h>	// pollfd, POLLIN
 # include <vector>	// std::vector
 # include <cstddef>	// std::size_t
+# include <map>		// std::map
 
 class Server {
 private:
-	int					_port;
-	std::string			_password;
-	int					_serverSocket;
-	std::vector<pollfd>	_pollFds;
+	int							_port;
+	std::string					_password;
+	int							_serverSocket;
+	std::vector<pollfd>			_pollFds;
+	std::map<int, std::string>	_receiveBuffers;
 	Channels			_channels;
 	Clients				_clients;
 
@@ -44,6 +46,11 @@ private:
 	void	acceptNewClient();
 	bool	readFromClient(std::size_t pollIndex);
 	void	disconnectClient(std::size_t pollIndex);
+	void	bufferClientInput(int clientSocket, const char* data, 
+						  std::size_t dataLength);
+	void	processClientBuffer(int clientSocket);
+	void	handleCompleteCommand(int clientSocket,
+			const std::string& command);
 
 public:
 	Server(const std::string& port, const std::string& password);
