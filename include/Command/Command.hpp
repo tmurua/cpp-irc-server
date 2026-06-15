@@ -6,7 +6,7 @@
 /*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/05 16:15:57 by johartma          #+#    #+#             */
-/*   Updated: 2026/06/08 09:58:49 by johartma         ###   ########.fr       */
+/*   Updated: 2026/06/15 18:14:04 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,8 +23,10 @@ class Command {
 	private:
     	std::string                 _prefix;
     	CmdType::Type               _type;
+    	std::string                 _raw_cmd;
     	std::vector<std::string>    _arguments;
     	std::string                 _trailing;
+    	bool                        _has_trailing;
 		int							_fd;
 	public:
 	  	class MalformedException : public std::exception {
@@ -41,7 +43,9 @@ class Command {
 		const std::string&				getPrefix() const;
 		CmdType::Type					getType() const;
 		const std::vector<std::string>&	getArguments() const;
+		const std::string&				getRawCmd() const;
 		const std::string&				getTrailing() const;
+		bool							hasTrailing() const;
 };
 
 #endif

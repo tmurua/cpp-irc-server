@@ -6,7 +6,7 @@
 /*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/08 10:17:44 by johartma          #+#    #+#             */
-/*   Updated: 2026/06/08 10:40:17 by johartma         ###   ########.fr       */
+/*   Updated: 2026/06/15 18:16:19 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,7 +14,11 @@
 #include <map>
 #include <string>
 #include <algorithm>
+#include <cctype>
 
+static char safe_toupper(char c) {
+    return static_cast<char>(::toupper(static_cast<unsigned char>(c)));
+}
 
 CmdType::Type parse_cmdtype(const std::string& s) {
     typedef std::map<std::string, CmdType::Type> CmdMap;
@@ -67,7 +71,7 @@ CmdType::Type parse_cmdtype(const std::string& s) {
     }
     
 	std::string t = s;
-	std::transform(t.begin(), t.end(), t.begin(), ::toupper);
+	std::transform(t.begin(), t.end(), t.begin(), safe_toupper);
 
     CmdMap::const_iterator it = table.find(t);
     return it != table.end() ? it->second : CmdType::UNKNOWN;

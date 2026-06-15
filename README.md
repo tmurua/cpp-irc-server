@@ -122,4 +122,5 @@ AI was used as a learning and planning assistant for:
 - planning a possible division of work;
 - explaining IRC, sockets, non-blocking I/O, and `poll()`;
 - drafting documentation;
-- suggesting possible test areas.
+- suggesting possible test areas, implementing statemachine tests
+- implementing repetetive functions (eg replies)

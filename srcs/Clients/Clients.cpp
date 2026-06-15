@@ -5,10 +5,11 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/09 00:00:00 by johartma          #+#    #+#             */
-/*   Updated: 2026/06/09 00:00:00 by johartma         ###   ########.fr       */
+/*   Created: 2026/06/15 16:34:08 by johartma          #+#    #+#             */
+/*   Updated: 2026/06/15 18:15:22 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
+
 
 #include "Clients/Clients.hpp"
 
@@ -40,13 +41,20 @@ int Clients::update_nick(int fd, std::string nick) {
     return (0);
 }
 
-int Clients::remove_client(int fd) {   
+int Clients::remove_client(int fd) {
     Client*  cl = this->get_client_fd(fd);
     if (!cl)
         return (1);
     lut.erase(cl->getNickname());
     clients.erase(fd);
     return 0;
+}
+
+int Clients::remove_client(std::string nick) {
+    std::map<std::string, int>::iterator it = lut.find(nick);
+    if (it == lut.end())
+        return 1;
+    return remove_client(it->second);
 }
 
 Client* Clients::get_client_fd(int fd) {

@@ -6,7 +6,7 @@
 /*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/05 16:16:09 by johartma          #+#    #+#             */
-/*   Updated: 2026/06/07 22:19:36 by johartma         ###   ########.fr       */
+/*   Updated: 2026/06/15 18:13:55 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,12 +19,14 @@ class Channel {
     private:
         std::string             _name; //max 200 chars, start with & or #, space, ^G or ",""
         bool                    _invite_only;
+        bool                    _topic_restricted;
         bool                    _has_key;
         std::string             _key;
         std::string             _topic;
         bool                    _has_topic;
         std::set<std::string>   _chan_users;
         std::set<std::string>   _chan_ops;
+        std::set<std::string>   _invite_list;
         int                     _user_limit;
     public:
         Channel(std::string name);
@@ -41,13 +43,22 @@ class Channel {
         const std::set<std::string>&    getOps() const;
         int                             getUserLimit() const;
 
+        // Getters
+        bool    isTopicRestricted() const;
+
         // Setters
         void    setInviteOnly(bool invite_only);
+        void    setTopicRestricted(bool restricted);
         void    setKey(const std::string& key);
         void    clearKey();
         void    setTopic(const std::string& topic);
         void    clearTopic();
         void    setUserLimit(int limit);
+
+        // Invite list
+        void    addInvite(const std::string& nick);
+        bool    isInvited(const std::string& nick) const;
+        void    clearInvite(const std::string& nick);
 
         // User management
         void    addUser(const std::string& nick);

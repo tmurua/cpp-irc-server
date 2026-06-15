@@ -5,10 +5,11 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/09 00:00:00 by johartma          #+#    #+#             */
-/*   Updated: 2026/06/09 00:00:00 by johartma         ###   ########.fr       */
+/*   Created: 2026/06/15 16:33:19 by johartma          #+#    #+#             */
+/*   Updated: 2026/06/15 18:14:11 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
+
 
 #ifndef REPLY_HPP
 # define REPLY_HPP
@@ -97,6 +98,11 @@ namespace Reply {
 	std::string err_nosuchchannel(const std::string& server, const std::string& nick,
 	                              const std::string& channel);
 
+	// ERR_CANNOTSENDTOCHAN (404) — PRIVMSG or NOTICE sent to a channel by a
+	//   client that is not a member of it (no external messages allowed).
+	std::string err_cannotsendtochan(const std::string& server, const std::string& nick,
+	                                 const std::string& channel);
+
 	// ERR_NORECIPIENT (411) — PRIVMSG sent with no target argument.
 	std::string err_norecipient(const std::string& server, const std::string& nick,
 	                            const std::string& cmd);
@@ -144,6 +150,10 @@ namespace Reply {
 	//   already completed registration.
 	std::string err_alreadyregistred(const std::string& server, const std::string& nick);
 
+	// ERR_NOTREGISTERED (451) — command requiring registration received before
+	//   PASS + NICK + USER have all completed.
+	std::string err_notregistered(const std::string& server, const std::string& nick);
+
 	// ERR_PASSWDMISMATCH (464) — PASS argument does not match the server password.
 	//   Send before closing the connection or when finalizing registration.
 	std::string err_passwdmismatch(const std::string& server, const std::string& nick);
@@ -167,6 +177,18 @@ namespace Reply {
 	//   because the issuing client is not a channel operator.
 	std::string err_chanoprivsneeded(const std::string& server, const std::string& nick,
 	                                 const std::string& channel);
+
+	// ERR_USERNOTINCHANNEL (441) — KICK target is not a member of the channel.
+	std::string err_usernotinchannel(const std::string& server, const std::string& nick,
+	                                 const std::string& target, const std::string& channel);
+
+	// RPL_CHANNELMODEIS (324) — reply to MODE query with no modestring argument.
+	std::string rpl_channelmodeis(const std::string& server, const std::string& nick,
+	                              const std::string& channel, const std::string& modestring);
+
+	// ERR_UNKNOWNMODE (472) — MODE modestring contains an unrecognised character.
+	std::string err_unknownmode(const std::string& server, const std::string& nick,
+	                            char modechar);
 
 } // namespace Reply
 

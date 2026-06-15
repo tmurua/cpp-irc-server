@@ -6,7 +6,7 @@
 /*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/08 09:33:30 by johartma          #+#    #+#             */
-/*   Updated: 2026/06/08 10:44:17 by johartma         ###   ########.fr       */
+/*   Updated: 2026/06/15 18:16:22 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,7 +28,9 @@ static void remove_end(std::string& raw) {
 static std::string get_prefix(std::string& raw) {
 	size_t		space;
 	std::string	prefix;
-	
+
+	if (raw.empty())
+		return "";
 	if (raw[0] == ':') {
 		space = raw.find(' ');
 		if (space == std::string::npos)
@@ -41,10 +43,13 @@ static std::string get_prefix(std::string& raw) {
 	return prefix;
 }
 
-static std::string get_trailing(std::string& raw) {
+static std::string get_trailing(std::string& raw, bool& has) {
     size_t pos = raw.find(" :");
-    if (pos == std::string::npos)
+    if (pos == std::string::npos) {
+        has = false;
         return "";
+    }
+    has = true;
     std::string trailing = raw.substr(pos + 2); // can be empty, that's okay
     raw = raw.substr(0, pos);
     return trailing;
@@ -58,10 +63,12 @@ Command::Command(int fd, const std::string& raw)
 	
 	remove_end(line);
 	_prefix = get_prefix(line);
-	_trailing = get_trailing(line);
+	_has_trailing = false;
+	_trailing = get_trailing(line, _has_trailing);
 	
 	std::istringstream	ss(line);
 	ss >> token;
+	_raw_cmd = token;
 	_type = parse_cmdtype(token);
 	while (ss >> token)
 		_arguments.push_back(token);
@@ -92,9 +99,19 @@ const std::vector<std::string>&	Command::getArguments() const
 	return _arguments;
 }
 
+const std::string&	Command::getRawCmd() const
+{
+	return _raw_cmd;
+}
+
 const std::string&	Command::getTrailing() const
 {
 	return _trailing;
+}
+
+bool	Command::hasTrailing() const
+{
+	return _has_trailing;
 }
 
 typedef int (*Handler)(Command&, Server&);

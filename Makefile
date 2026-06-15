@@ -11,9 +11,14 @@ OBJ		= $(SRC:.cpp=.o)
 
 TEST_NAME	= run_tests
 TEST_SRC	= tests/test_main.cpp tests/unit/test_cmdtypes.cpp tests/unit/test_command.cpp \
-			  tests/unit/test_channels.cpp tests/unit/test_clients.cpp
+			  tests/unit/test_channels.cpp tests/unit/test_clients.cpp \
+			  tests/unit/test_reply.cpp \
+			  tests/unit/test_handlers_auth.cpp tests/unit/test_handlers_channel.cpp \
+			  tests/unit/test_handlers_messaging.cpp tests/unit/test_handlers_misc.cpp \
+			  tests/unit/test_access_control.cpp \
+			  tests/unit/test_session.cpp
 TEST_OBJ	= $(TEST_SRC:.cpp=.o)
-TEST_LIB	= srcs/Reply.cpp srcs/Command/CmdTypes.cpp srcs/Command/Command.cpp \
+TEST_LIB	= srcs/Server.cpp srcs/Reply.cpp srcs/Command/CmdTypes.cpp srcs/Command/Command.cpp \
 			  srcs/Command/handlers/auth.cpp srcs/Command/handlers/channel.cpp \
 			  srcs/Command/handlers/messaging.cpp srcs/Command/handlers/misc.cpp \
 			  srcs/Channels/Channel.cpp srcs/Channels/Channels.cpp \

@@ -1,15 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   test_clients.cpp                                   :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/09 00:00:00 by johartma          #+#    #+#             */
-/*   Updated: 2026/06/09 00:00:00 by johartma         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include "test_runner.hpp"
 #include "Clients/Client.hpp"
 #include "Clients/Clients.hpp"
@@ -104,4 +92,30 @@ TEST(clients_multiple_independent_clients)
     container.remove_client("alice");
     ASSERT(container.get_client("alice") == NULL);
     ASSERT(container.get_client("bob") != NULL);
+}
+
+TEST(clients_remove_by_fd_returns_zero)
+{
+    Clients container;
+    Client  client(42);
+    client.setNickname("alice");
+    container.add_client(client);
+    ASSERT_EQ(container.remove_client(42), 0);
+}
+
+TEST(clients_remove_by_fd_missing_returns_nonzero)
+{
+    Clients container;
+    ASSERT_EQ(container.remove_client(99), 1);
+}
+
+TEST(clients_remove_by_fd_clears_nick_lookup)
+{
+    Clients container;
+    Client  client(42);
+    client.setNickname("alice");
+    container.add_client(client);
+    container.remove_client(42);
+    ASSERT(container.get_client("alice") == NULL);
+    ASSERT(container.get_client_fd(42) == NULL);
 }

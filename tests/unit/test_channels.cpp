@@ -1,15 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   test_channels.cpp                                  :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/06/09 00:00:00 by johartma          #+#    #+#             */
-/*   Updated: 2026/06/09 00:00:00 by johartma         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include "test_runner.hpp"
 #include "Channels/Channel.hpp"
 #include "Channels/Channels.hpp"
@@ -86,4 +74,46 @@ TEST(channels_multiple_independent_channels)
     container.remove_channel("#general");
     ASSERT(container.get_channel("#general") == NULL);
     ASSERT(container.get_channel("#random") != NULL);
+}
+
+TEST(channel_topic_restricted_default_false)
+{
+    Channel chan("#test");
+    ASSERT(!chan.isTopicRestricted());
+}
+
+TEST(channel_set_topic_restricted)
+{
+    Channel chan("#test");
+    chan.setTopicRestricted(true);
+    ASSERT(chan.isTopicRestricted());
+    chan.setTopicRestricted(false);
+    ASSERT(!chan.isTopicRestricted());
+}
+
+TEST(channel_invite_list_add_and_query)
+{
+    Channel chan("#test");
+    ASSERT(!chan.isInvited("alice"));
+    chan.addInvite("alice");
+    ASSERT(chan.isInvited("alice"));
+    ASSERT(!chan.isInvited("bob"));
+}
+
+TEST(channel_invite_clear)
+{
+    Channel chan("#test");
+    chan.addInvite("alice");
+    chan.clearInvite("alice");
+    ASSERT(!chan.isInvited("alice"));
+}
+
+TEST(channel_invite_independent_of_users)
+{
+    Channel chan("#test");
+    chan.addUser("alice");
+    chan.addInvite("bob");
+    ASSERT(chan.hasUser("alice"));
+    ASSERT(!chan.hasUser("bob"));
+    ASSERT(chan.isInvited("bob"));
 }
