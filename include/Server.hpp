@@ -3,20 +3,22 @@
 /*                                                        :::      ::::::::   */
 /*   Server.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: tmurua <tmurua@student.42berlin.de>        +#+  +:+       +#+        */
+/*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 17:43:29 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/10 19:30:30 by tmurua           ###   ########.fr       */
+/*   Updated: 2026/06/15 18:24:27 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #ifndef SERVER_HPP
-#define SERVER_HPP
+# define SERVER_HPP
 
-#include <string>
-#include <poll.h>	// pollfd, POLLIN
-#include <vector>	// std::vector
-#include <cstddef>	// std::size_t
+# include <string>
+# include "Clients/Clients.hpp"
+# include "Channels/Channels.hpp"
+# include <poll.h>	// pollfd, POLLIN
+# include <vector>	// std::vector
+# include <cstddef>	// std::size_t
 # include <map>		// std::map
 
 class Server {
@@ -26,6 +28,8 @@ private:
 	int							_serverSocket;
 	std::vector<pollfd>			_pollFds;
 	std::map<int, std::string>	_receiveBuffers;
+	Channels			_channels;
+	Clients				_clients;
 
 	int		parsePort(const std::string& port) const;
 	bool	isOnlyDigits(const std::string& text) const;
@@ -53,6 +57,14 @@ public:
 	~Server();
 
 	void	start();
+	int		executecmd(int fd, const std::string& raw);
+	int		sndmsg(const Client& clnt, const std::string& msg);
+	void	disconnectClient(int fd);
+
+	// Accessors used by command handlers (see include/Command/Handlers.hpp)
+	Clients&				getClients();
+	Channels&				getChannels();
+	const std::string&		getPassword() const;
 };
 
-#endif
+# endif

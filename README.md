@@ -76,7 +76,14 @@ Incoming TCP data may arrive in fragments, so complete IRC commands must be rebu
 
 ## Testing
 
-TODO
+Unit tests cover command parsing (`CmdTypes.cpp`, `Command.cpp`).
+
+```bash
+make test       # build unit tests
+make test_run   # build and run
+```
+
+Integration tests against a live server are planned.
 
 ## Resources
 
@@ -87,6 +94,7 @@ TODO
 - [RFC 2811 — Internet Relay Chat: Channel Management](https://datatracker.ietf.org/doc/html/rfc2811)
 - [RFC 2812 — Internet Relay Chat: Client Protocol](https://datatracker.ietf.org/doc/html/rfc2812)
 - [RFC 2813 — Internet Relay Chat: Server Protocol](https://datatracker.ietf.org/doc/html/rfc2813)
+- [dd.ircdocs.horse] https://dd.ircdocs.horse/refs/commands/user
 
 ### Network Programming
 
@@ -114,4 +122,5 @@ AI was used as a learning and planning assistant for:
 - planning a possible division of work;
 - explaining IRC, sockets, non-blocking I/O, and `poll()`;
 - drafting documentation;
-- suggesting possible test areas.
+- suggesting possible test areas, implementing statemachine tests
+- implementing repetetive functions (eg replies)

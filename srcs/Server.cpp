@@ -3,21 +3,23 @@
 /*                                                        :::      ::::::::   */
 /*   Server.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: tmurua <tmurua@student.42berlin.de>        +#+  +:+       +#+        */
+/*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 18:03:21 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/10 20:45:10 by tmurua           ###   ########.fr       */
+/*   Updated: 2026/06/15 18:24:57 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "Server.hpp"
+#include "Command/Command.hpp"
+#include "Reply.hpp"
 
 #include <iostream>
 #include <cstddef>		// std::size_t
 #include <stdexcept>	// std::invalid_argument, std::runtime_error
 #include <unistd.h>		// close
 #include <cstdlib>		// std::strtol
-#include <sys/socket.h>	// socket, setsockopt, bind, listen, accept 
+#include <sys/socket.h>	// socket, setsockopt, bind, listen, accept, send
 #include <cstring>		// std::memset
 #include <netinet/in.h>	// sockaddr_in, htons, INADDR_ANY
 #include <fcntl.h>		// fcntl, F_SETFL, O_NONBLOCK
@@ -234,7 +236,7 @@ void	Server::acceptNewClient(){
 
 // read one available data chunk from a client socket and to client's buffer
 bool	Server::readFromClient(std::size_t pollIndex){
-	char	buffer[512]; 
+	char	buffer[512];
 	int		clientSocket;
 	ssize_t	bytesRead;
 
@@ -253,15 +255,35 @@ bool	Server::readFromClient(std::size_t pollIndex){
 		disconnectClient(pollIndex);
 		return (false);
 	}
-	bufferClientInput(clientSocket, buffer,	static_cast<std::size_t>(bytesRead));
+	bufferClientInput(clientSocket, buffer, static_cast<std::size_t>(bytesRead));
 	return (true);
 }
 
 // close a client socket and remove it from the poll list
 void	Server::disconnectClient(std::size_t pollIndex){
-	int	clientSocket;
+	int	clientSocket = _pollFds[pollIndex].fd;
 
-	clientSocket = _pollFds[pollIndex].fd;
+	Client* client = _clients.get_client_fd(clientSocket);
+	if (client) {
+		std::string nick    = client->getNickname();
+		std::string quitMsg = Reply::from_client(*client, "QUIT", "", "Connection reset by peer");
+		std::set<std::string> chanList = client->getChannels();
+		for (std::set<std::string>::const_iterator it = chanList.begin(); it != chanList.end(); ++it) {
+			Channel* chan = _channels.get_channel(*it);
+			if (!chan) continue;
+			const std::set<std::string> users = chan->getUsers();
+			for (std::set<std::string>::const_iterator uit = users.begin(); uit != users.end(); ++uit) {
+				if (*uit == nick) continue;
+				Client* m = _clients.get_client(*uit);
+				if (m) sndmsg(*m, quitMsg);
+			}
+			chan->removeUser(nick);
+			if (chan->getUsers().empty())
+				_channels.remove_channel(*it);
+		}
+	}
+
+	_clients.remove_client(clientSocket);
 	_receiveBuffers.erase(clientSocket);
 	close(clientSocket);
 	_pollFds.erase(_pollFds.begin() + pollIndex);
@@ -270,8 +292,25 @@ void	Server::disconnectClient(std::size_t pollIndex){
 		<< clientSocket << std::endl;
 }
 
+int	Server::sndmsg(const Client& clnt, const std::string& msg) {
+	send(clnt.getFd(), msg.c_str(), msg.size(), 0);
+	return 0;
+}
+
+void	Server::disconnectClient(int fd) {
+	_clients.remove_client(fd);
+	_receiveBuffers.erase(fd);
+	for (std::size_t i = 0; i < _pollFds.size(); i++) {
+		if (_pollFds[i].fd == fd) {
+			close(fd);
+			_pollFds.erase(_pollFds.begin() + i);
+			return;
+		}
+	}
+}
+
 // preserve received data between recv() calls until full command lines exist
-void	Server::bufferClientInput(int clientSocket,	const char* data,
+void	Server::bufferClientInput(int clientSocket, const char* data,
 									std::size_t dataLength){
 	_receiveBuffers[clientSocket].append(data, dataLength);
 	processClientBuffer(clientSocket);
@@ -299,9 +338,30 @@ void	Server::processClientBuffer(int clientSocket){
 	}
 }
 
-// TEMPORARY integration point until parser is merged
 void	Server::handleCompleteCommand(int clientSocket,
 		const std::string& command){
-	std::cout << "Complete command from client "
-		<< clientSocket << ": " << command << std::endl;
+	executecmd(clientSocket, command);
+}
+
+// entry point for the dispatch pipeline: build a Command from a raw line
+// and let it route to the matching handler (see srcs/Command/Command.cpp)
+int	Server::executecmd(int fd, const std::string& raw){
+	try {
+		Command	cmd(fd, raw);
+		return cmd.execute(*this);
+	} catch (const Command::MalformedException&) {
+		return 1;
+	}
+}
+
+Clients&	Server::getClients(){
+	return _clients;
+}
+
+Channels&	Server::getChannels(){
+	return _channels;
+}
+
+const std::string&	Server::getPassword() const {
+	return _password;
 }
