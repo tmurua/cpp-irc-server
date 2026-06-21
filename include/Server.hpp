@@ -6,7 +6,7 @@
 /*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 17:43:29 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/15 18:24:27 by johartma         ###   ########.fr       */
+/*   Updated: 2026/06/21 17:10:27 by tmurua           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,6 +28,7 @@ private:
 	int							_serverSocket;
 	std::vector<pollfd>			_pollFds;
 	std::map<int, std::string>	_receiveBuffers;
+	std::map<int, std::string>	_sendBuffers;
 	Channels			_channels;
 	Clients				_clients;
 
@@ -49,6 +50,8 @@ private:
 	void	bufferClientInput(int clientSocket, const char* data, 
 						  std::size_t dataLength);
 	void	processClientBuffer(int clientSocket);
+	void	setWriteMonitoring(int clientSocket, bool enabled);
+	bool	sendBufferedData(std::size_t pollIndex);
 	void	handleCompleteCommand(int clientSocket,
 			const std::string& command);
 
@@ -57,6 +60,7 @@ public:
 	~Server();
 
 	void	start();
+	void	queueMessage(int clientSocket, const std::string& message);
 	int		executecmd(int fd, const std::string& raw);
 	int		sndmsg(const Client& clnt, const std::string& msg);
 	void	disconnectClient(int fd);
