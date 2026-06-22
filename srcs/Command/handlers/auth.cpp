@@ -24,10 +24,10 @@ static void register_try(Client *cl, Server& serv)
 			|| cl->getNickname().empty() || cl->getUsername().empty())
 		return;
 	cl->setRegistered(true);
-	serv.sndmsg(*cl, Reply::rpl_welcome("", *cl));
-	serv.sndmsg(*cl, Reply::rpl_yourhost("", *cl));
-	serv.sndmsg(*cl, Reply::rpl_created("", *cl));
-	serv.sndmsg(*cl, Reply::rpl_myinfo("", *cl));
+	serv.sndmsg(*cl, Reply::rpl_welcome(serv.getServerName(), *cl));
+	serv.sndmsg(*cl, Reply::rpl_yourhost(serv.getServerName(), *cl));
+	serv.sndmsg(*cl, Reply::rpl_created(serv.getServerName(), *cl));
+	serv.sndmsg(*cl, Reply::rpl_myinfo(serv.getServerName(), *cl));
 }
 
 static bool is_valid_nick(const std::string& nick)
@@ -45,11 +45,13 @@ static bool is_valid_nick(const std::string& nick)
 	return true;
 }
 
-static Client* get_or_create(int fd, Clients& clients)
+static Client* get_or_create(int fd, Server& serv)
 {
+	Clients& clients = serv.getClients();
 	Client* cl = clients.get_client_fd(fd);
 	if (!cl) {
 		Client tmp(fd);
+		tmp.setHostname(serv.getPeerHostname(fd));
 		clients.add_client(tmp);
 		cl = clients.get_client_fd(fd);
 	}
@@ -57,19 +59,18 @@ static Client* get_or_create(int fd, Clients& clients)
 }
 
 int	cmd_pass(Command& cmd, Server& serv) {
-	Clients& clients = serv.getClients();
-	Client*  client  = get_or_create(cmd.getFd(), clients);
+	Client*  client  = get_or_create(cmd.getFd(), serv);
 
 	if (cmd.getArguments().empty()) {
-		serv.sndmsg(*client, Reply::err_needmoreparams("", client->getNickname(), "PASS"));
+		serv.sndmsg(*client, Reply::err_needmoreparams(serv.getServerName(), client->getNickname(), "PASS"));
 		return 1;
 	}
 	if (client->isRegistered()) {
-		serv.sndmsg(*client, Reply::err_alreadyregistred("", client->getNickname()));
+		serv.sndmsg(*client, Reply::err_alreadyregistred(serv.getServerName(), client->getNickname()));
 		return 3;
 	}
 	if (cmd.getArguments()[0] != serv.getPassword()) {
-		serv.sndmsg(*client, Reply::err_passwdmismatch("", client->getNickname()));
+		serv.sndmsg(*client, Reply::err_passwdmismatch(serv.getServerName(), client->getNickname()));
 		return 4;
 	}
 	client->setAuthenticated(true);
@@ -79,12 +80,12 @@ int	cmd_pass(Command& cmd, Server& serv) {
 
 int	cmd_nick(Command& cmd, Server& serv) {
 	Clients& clients = serv.getClients();
-	Client*  client  = get_or_create(cmd.getFd(), clients);
+	Client*  client  = get_or_create(cmd.getFd(), serv);
 
 	std::string oldnick = client->getNickname();
 
 	if (cmd.getArguments().empty()) {
-		serv.sndmsg(*client, Reply::err_nonicknamegiven("", oldnick));
+		serv.sndmsg(*client, Reply::err_nonicknamegiven(serv.getServerName(), oldnick));
 		return 2;
 	}
 
@@ -94,11 +95,11 @@ int	cmd_nick(Command& cmd, Server& serv) {
 		return 0;
 	}
 	if (!is_valid_nick(newnick)) {
-		serv.sndmsg(*client, Reply::err_erroneusnickname("", oldnick, newnick));
+		serv.sndmsg(*client, Reply::err_erroneusnickname(serv.getServerName(), oldnick, newnick));
 		return 3;
 	}
 	if (clients.get_client(newnick)) {
-		serv.sndmsg(*client, Reply::err_nicknameinuse("", oldnick, newnick));
+		serv.sndmsg(*client, Reply::err_nicknameinuse(serv.getServerName(), oldnick, newnick));
 		return 4;
 	}
 
@@ -145,15 +146,14 @@ int	cmd_nick(Command& cmd, Server& serv) {
 }
 
 int	cmd_user(Command& cmd, Server& serv) {
-	Clients& clients = serv.getClients();
-	Client*  client  = get_or_create(cmd.getFd(), clients);
+	Client*  client  = get_or_create(cmd.getFd(), serv);
 
 	if (cmd.getArguments().size() < 3 || cmd.getTrailing().empty()) {
-		serv.sndmsg(*client, Reply::err_needmoreparams("", client->getNickname(), "USER"));
+		serv.sndmsg(*client, Reply::err_needmoreparams(serv.getServerName(), client->getNickname(), "USER"));
 		return 1;
 	}
 	if (client->isRegistered()) {
-		serv.sndmsg(*client, Reply::err_alreadyregistred("", client->getNickname()));
+		serv.sndmsg(*client, Reply::err_alreadyregistred(serv.getServerName(), client->getNickname()));
 		return 2;
 	}
 	// Per RFC 2812, the <hostname> and <servername> parameters from a client

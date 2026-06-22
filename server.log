@@ -1,0 +1,111 @@
+<< CAP LS 302
+<< JOIN :
+>> :ft_irc.local CAP * LS :
+<< CAP END
+<< PASS mypass
+<< NICK johartma
+<< USER johartma johartma 127.0.0.1 :johartma
+>> :ft_irc.local 451 * :You have not registered
+>> :ft_irc.local 001 johartma :Welcome to the IRC Network johartma!johartma@127.0.0.1
+>> :ft_irc.local 002 johartma :Your host is ft_irc.local, running version 1.0
+>> :ft_irc.local 003 johartma :This server was created sometime
+>> :ft_irc.local 004 johartma ft_irc.local 1.0 o itkol
+<< MODE johartma +i
+<< JOIN #lobby
+>> :johartma!johartma@127.0.0.1 JOIN #lobby
+>> :ft_irc.local 331 johartma #lobby :No topic is set
+>> :ft_irc.local 353 johartma = #lobby :@alice bob johartma
+>> :ft_irc.local 366 johartma #lobby :End of NAMES list
+<< MODE #lobby
+>> :ft_irc.local 324 johartma #lobby +
+--> chanquery mode
+<< PRIVMSG bob :hi
+>> :bob!bob@127.0.0.1 PRIVMSG johartma :Hey johartma, bob got your message: hi
+<< WHO #lobby
+>> :ft_irc.local 352 johartma #lobby alice 127.0.0.1 ft_irc.local alice H@ :0 alice bot
+--> silent event who
+>> :ft_irc.local 352 johartma #lobby bob 127.0.0.1 ft_irc.local bob H :0 bob bot
+--> silent event who
+>> :ft_irc.local 352 johartma #lobby johartma 127.0.0.1 ft_irc.local johartma H :0 johartma
+--> silent event who
+>> :ft_irc.local 315 johartma #lobby :End of WHO list
+--> chanquery who end
+<< PRIVMSG bob :hi
+>> :bob!bob@127.0.0.1 PRIVMSG johartma :Hey johartma, bob got your message: hi
+<< MODE #lobby b
+>> :ft_irc.local 482 johartma #lobby :You're not channel operator
+<< PING ft_irc.local
+>> :ft_irc.local PONG ft_irc.local
+--> lag pong
+<< PRIVMSG bob :hi
+>> :bob!bob@127.0.0.1 PRIVMSG johartma :Hey johartma, bob got your message: hi
+<< CAP LS 302
+<< JOIN :
+>> :ft_irc.local CAP * LS :
+<< CAP END
+<< PASS mypass
+<< NICK johartma
+<< USER johartma johartma 127.0.0.1 :johartma
+>> :ft_irc.local 451 * :You have not registered
+>> :ft_irc.local 001 johartma :Welcome to the IRC Network johartma!johartma@127.0.0.1
+>> :ft_irc.local 002 johartma :Your host is ft_irc.local, running version 1.0
+>> :ft_irc.local 003 johartma :This server was created sometime
+>> :ft_irc.local 004 johartma ft_irc.local 1.0 o itkol
+<< MODE johartma +i
+<< JOIN #lobby
+>> :johartma!johartma@127.0.0.1 JOIN #lobby
+>> :ft_irc.local 331 johartma #lobby :No topic is set
+>> :ft_irc.local 353 johartma = #lobby :@alice bob johartma
+>> :ft_irc.local 366 johartma #lobby :End of NAMES list
+<< MODE #lobby
+>> :ft_irc.local 324 johartma #lobby +
+--> chanquery mode
+<< PRIVMSG bob :hi
+>> :bob!bob@127.0.0.1 PRIVMSG johartma :Hey johartma, bob got your message: hi
+<< WHO #lobby
+>> :ft_irc.local 352 johartma #lobby alice 127.0.0.1 ft_irc.local alice H@ :0 alice bot
+--> silent event who
+>> :ft_irc.local 352 johartma #lobby bob 127.0.0.1 ft_irc.local bob H :0 bob bot
+--> silent event who
+>> :ft_irc.local 352 johartma #lobby johartma 127.0.0.1 ft_irc.local johartma H :0 johartma
+--> silent event who
+>> :ft_irc.local 315 johartma #lobby :End of WHO list
+--> chanquery who end
+<< PRIVMSG bob :hi
+>> :bob!bob@127.0.0.1 PRIVMSG johartma :Hey johartma, bob got your message: hi
+<< MODE #lobby b
+>> :ft_irc.local 482 johartma #lobby :You're not channel operator
+<< PING ft_irc.local
+>> :ft_irc.local PONG ft_irc.local
+--> lag pong
+<< PRIVMSG bob :hi
+>> :bob!bob@127.0.0.1 PRIVMSG johartma :Hey johartma, bob got your message: hi
+<< PING ft_irc.local
+>> :ft_irc.local PONG ft_irc.local
+--> FAILED mode b: chanquery abort
+--> lag pong
+<< MODE #lobby b
+>> :ft_irc.local 482 johartma #lobby :You're not channel operator
+<< PING ft_irc.local
+>> :ft_irc.local PONG ft_irc.local
+--> lag pong
+<< PING ft_irc.local
+>> :ft_irc.local PONG ft_irc.local
+--> FAILED mode b: chanquery abort
+--> lag pong
+<< PRIVMSG bob :hi
+>> :bob!bob@127.0.0.1 PRIVMSG johartma :Hey johartma, bob got your message: hi
+<< PRIVMSG #lobby :hi
+>> :alice!alice@127.0.0.1 PRIVMSG #lobby :Hi johartma, alice here. You said: hi
+>> :bob!bob@127.0.0.1 PRIVMSG #lobby :Hey johartma, bob got your message: hi
+<< PRIVMSG alice :hi
+>> :alice!alice@127.0.0.1 PRIVMSG johartma :Hi johartma, alice here. You said: hi
+<< PRIVMSG #lobby :hi
+>> :alice!alice@127.0.0.1 PRIVMSG #lobby :Hi johartma, alice here. You said: hi
+>> :bob!bob@127.0.0.1 PRIVMSG #lobby :Hey johartma, bob got your message: hi
+<< PING ft_irc.local
+>> :ft_irc.local PONG ft_irc.local
+--> lag pong
+<< PING ft_irc.local
+>> :ft_irc.local PONG ft_irc.local
+--> lag pong

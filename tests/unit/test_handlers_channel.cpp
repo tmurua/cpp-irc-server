@@ -537,6 +537,27 @@ TEST(handler_invite_valid_adds_to_list_and_replies)
 
 // ── MODE ──────────────────────────────────────────────────────────────────────
 
+TEST(handler_mode_user_mode_on_self_is_silent)
+{
+	Server serv("6667", "secret");
+	Peer p = make_peer();
+	add_registered(serv, p.srv_fd, "alice");
+	dispatch(serv, p.srv_fd, "MODE alice +i");
+	ASSERT(drain(p.cap_fd).empty());
+	close_peer(p);
+}
+
+TEST(handler_mode_user_mode_on_other_sends_502)
+{
+	Server serv("6667", "secret");
+	Peer p = make_peer();
+	add_registered(serv, p.srv_fd, "alice");
+	dispatch(serv, p.srv_fd, "MODE bob +i");
+	std::string out = drain(p.cap_fd);
+	ASSERT(has(out, "502"));
+	close_peer(p);
+}
+
 TEST(handler_mode_no_args_sends_461)
 {
 	Server serv("6667", "secret");

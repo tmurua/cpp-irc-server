@@ -45,12 +45,12 @@ static void dispatch(Server& serv, Client& sender,
 		Channel* chan = channels.get_channel(target);
 		if (!chan) {
 			if (!silent)
-				serv.sndmsg(sender, Reply::err_nosuchchannel("", sender.getNickname(), target));
+				serv.sndmsg(sender, Reply::err_nosuchchannel(serv.getServerName(), sender.getNickname(), target));
 			return;
 		}
 		if (!chan->hasUser(sender.getNickname())) {
 			if (!silent)
-				serv.sndmsg(sender, Reply::err_cannotsendtochan("", sender.getNickname(), target));
+				serv.sndmsg(sender, Reply::err_cannotsendtochan(serv.getServerName(), sender.getNickname(), target));
 			return;
 		}
 		const std::set<std::string>& users = chan->getUsers();
@@ -63,7 +63,7 @@ static void dispatch(Server& serv, Client& sender,
 		Client* dest = clients.get_client(target);
 		if (!dest) {
 			if (!silent)
-				serv.sndmsg(sender, Reply::err_nosuchnick("", sender.getNickname(), target));
+				serv.sndmsg(sender, Reply::err_nosuchnick(serv.getServerName(), sender.getNickname(), target));
 			return;
 		}
 		serv.sndmsg(*dest, msg);
@@ -75,17 +75,17 @@ int	cmd_privmsg(Command& cmd, Server& serv) {
 	Client*  client  = clients.get_client_fd(cmd.getFd());
 	if (!client) return 1;
 	if (!client->isRegistered()) {
-		serv.sndmsg(*client, Reply::err_notregistered("", client->getNickname()));
+		serv.sndmsg(*client, Reply::err_notregistered(serv.getServerName(), client->getNickname()));
 		return 1;
 	}
 
 	const std::string& nick = client->getNickname();
 	if (cmd.getArguments().empty()) {
-		serv.sndmsg(*client, Reply::err_norecipient("", nick, "PRIVMSG"));
+		serv.sndmsg(*client, Reply::err_norecipient(serv.getServerName(), nick, "PRIVMSG"));
 		return 1;
 	}
 	if (cmd.getTrailing().empty()) {
-		serv.sndmsg(*client, Reply::err_notexttosend("", nick));
+		serv.sndmsg(*client, Reply::err_notexttosend(serv.getServerName(), nick));
 		return 1;
 	}
 

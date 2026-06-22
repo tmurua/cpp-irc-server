@@ -29,6 +29,7 @@ CmdType::Type parse_cmdtype(const std::string& s) {
         table["PASS"]    = CmdType::PASS;
         table["NICK"]    = CmdType::NICK;
         table["USER"]    = CmdType::USER;
+        table["CAP"]     = CmdType::CAP;
         table["OPER"]    = CmdType::OPER;
         table["MODE"]    = CmdType::MODE;
         table["SERVICE"] = CmdType::SERVICE;

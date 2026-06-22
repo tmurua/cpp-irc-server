@@ -50,6 +50,12 @@ static bool valid_channame(const std::string& name)
 		&& name.size() <= 200;
 }
 
+static bool is_mode_list_query(const std::string& token)
+{
+	return token == "b" || token == "+b" || token == "e" || token == "+e"
+		|| token == "I" || token == "+I";
+}
+
 int	cmd_join(Command& cmd, Server& serv) {
 	Clients&  clients  = serv.getClients();
 	Channels& channels = serv.getChannels();
@@ -57,11 +63,11 @@ int	cmd_join(Command& cmd, Server& serv) {
 
 	if (!client) return 1;
 	if (!client->isRegistered()) {
-		serv.sndmsg(*client, Reply::err_notregistered("", client->getNickname()));
+		serv.sndmsg(*client, Reply::err_notregistered(serv.getServerName(), client->getNickname()));
 		return 1;
 	}
 	if (cmd.getArguments().empty()) {
-		serv.sndmsg(*client, Reply::err_needmoreparams("", client->getNickname(), "JOIN"));
+		serv.sndmsg(*client, Reply::err_needmoreparams(serv.getServerName(), client->getNickname(), "JOIN"));
 		return 1;
 	}
 
@@ -77,7 +83,7 @@ int	cmd_join(Command& cmd, Server& serv) {
 		std::string        key      = (i < keys.size()) ? keys[i] : "";
 
 		if (!valid_channame(channame)) {
-			serv.sndmsg(*client, Reply::err_nosuchchannel("", nick, channame));
+			serv.sndmsg(*client, Reply::err_nosuchchannel(serv.getServerName(), nick, channame));
 			continue;
 		}
 
@@ -91,16 +97,16 @@ int	cmd_join(Command& cmd, Server& serv) {
 			chan->addOp(nick);
 		} else {
 			if (chan->isInviteOnly() && !chan->isInvited(nick)) {
-				serv.sndmsg(*client, Reply::err_inviteonlychan("", nick, channame));
+				serv.sndmsg(*client, Reply::err_inviteonlychan(serv.getServerName(), nick, channame));
 				continue;
 			}
 			if (chan->hasKey() && chan->getKey() != key) {
-				serv.sndmsg(*client, Reply::err_badchannelkey("", nick, channame));
+				serv.sndmsg(*client, Reply::err_badchannelkey(serv.getServerName(), nick, channame));
 				continue;
 			}
 			if (chan->getUserLimit() > 0
 					&& static_cast<int>(chan->getUsers().size()) >= chan->getUserLimit()) {
-				serv.sndmsg(*client, Reply::err_channelisfull("", nick, channame));
+				serv.sndmsg(*client, Reply::err_channelisfull(serv.getServerName(), nick, channame));
 				continue;
 			}
 		}
@@ -112,9 +118,9 @@ int	cmd_join(Command& cmd, Server& serv) {
 		broadcast(serv, chan, Reply::from_client(*client, "JOIN", channame));
 
 		if (chan->hasTopic())
-			serv.sndmsg(*client, Reply::rpl_topic("", nick, channame, chan->getTopic()));
+			serv.sndmsg(*client, Reply::rpl_topic(serv.getServerName(), nick, channame, chan->getTopic()));
 		else
-			serv.sndmsg(*client, Reply::rpl_notopic("", nick, channame));
+			serv.sndmsg(*client, Reply::rpl_notopic(serv.getServerName(), nick, channame));
 
 		std::string namesList;
 		const std::set<std::string>& users = chan->getUsers();
@@ -123,8 +129,8 @@ int	cmd_join(Command& cmd, Server& serv) {
 			if (chan->isOp(*it)) namesList += "@";
 			namesList += *it;
 		}
-		serv.sndmsg(*client, Reply::rpl_namreply("", nick, channame, namesList));
-		serv.sndmsg(*client, Reply::rpl_endofnames("", nick, channame));
+		serv.sndmsg(*client, Reply::rpl_namreply(serv.getServerName(), nick, channame, namesList));
+		serv.sndmsg(*client, Reply::rpl_endofnames(serv.getServerName(), nick, channame));
 	}
 	return 0;
 }
@@ -136,11 +142,11 @@ int	cmd_part(Command& cmd, Server& serv) {
 
 	if (!client) return 1;
 	if (!client->isRegistered()) {
-		serv.sndmsg(*client, Reply::err_notregistered("", client->getNickname()));
+		serv.sndmsg(*client, Reply::err_notregistered(serv.getServerName(), client->getNickname()));
 		return 1;
 	}
 	if (cmd.getArguments().empty()) {
-		serv.sndmsg(*client, Reply::err_needmoreparams("", client->getNickname(), "PART"));
+		serv.sndmsg(*client, Reply::err_needmoreparams(serv.getServerName(), client->getNickname(), "PART"));
 		return 1;
 	}
 
@@ -152,11 +158,11 @@ int	cmd_part(Command& cmd, Server& serv) {
 		const std::string& channame = channames[i];
 		Channel* chan = channels.get_channel(channame);
 		if (!chan) {
-			serv.sndmsg(*client, Reply::err_nosuchchannel("", nick, channame));
+			serv.sndmsg(*client, Reply::err_nosuchchannel(serv.getServerName(), nick, channame));
 			continue;
 		}
 		if (!chan->hasUser(nick)) {
-			serv.sndmsg(*client, Reply::err_notonchannel("", nick, channame));
+			serv.sndmsg(*client, Reply::err_notonchannel(serv.getServerName(), nick, channame));
 			continue;
 		}
 		broadcast(serv, chan, Reply::from_client(*client, "PART", channame, reason));
@@ -175,11 +181,11 @@ int	cmd_topic(Command& cmd, Server& serv) {
 
 	if (!client) return 1;
 	if (!client->isRegistered()) {
-		serv.sndmsg(*client, Reply::err_notregistered("", client->getNickname()));
+		serv.sndmsg(*client, Reply::err_notregistered(serv.getServerName(), client->getNickname()));
 		return 1;
 	}
 	if (cmd.getArguments().empty()) {
-		serv.sndmsg(*client, Reply::err_needmoreparams("", client->getNickname(), "TOPIC"));
+		serv.sndmsg(*client, Reply::err_needmoreparams(serv.getServerName(), client->getNickname(), "TOPIC"));
 		return 1;
 	}
 
@@ -187,26 +193,26 @@ int	cmd_topic(Command& cmd, Server& serv) {
 	const std::string& channame = cmd.getArguments()[0];
 	Channel* chan = channels.get_channel(channame);
 	if (!chan) {
-		serv.sndmsg(*client, Reply::err_nosuchchannel("", nick, channame));
+		serv.sndmsg(*client, Reply::err_nosuchchannel(serv.getServerName(), nick, channame));
 		return 1;
 	}
 	if (!chan->hasUser(nick)) {
-		serv.sndmsg(*client, Reply::err_notonchannel("", nick, channame));
+		serv.sndmsg(*client, Reply::err_notonchannel(serv.getServerName(), nick, channame));
 		return 1;
 	}
 
 	// Query: single arg with no trailing token at all
 	if (cmd.getArguments().size() == 1 && !cmd.hasTrailing()) {
 		if (chan->hasTopic())
-			serv.sndmsg(*client, Reply::rpl_topic("", nick, channame, chan->getTopic()));
+			serv.sndmsg(*client, Reply::rpl_topic(serv.getServerName(), nick, channame, chan->getTopic()));
 		else
-			serv.sndmsg(*client, Reply::rpl_notopic("", nick, channame));
+			serv.sndmsg(*client, Reply::rpl_notopic(serv.getServerName(), nick, channame));
 		return 0;
 	}
 
 	// Set / clear (explicit empty trailing means clear)
 	if (chan->isTopicRestricted() && !chan->isOp(nick)) {
-		serv.sndmsg(*client, Reply::err_chanoprivsneeded("", nick, channame));
+		serv.sndmsg(*client, Reply::err_chanoprivsneeded(serv.getServerName(), nick, channame));
 		return 1;
 	}
 	const std::string& newTopic = cmd.getTrailing();
@@ -231,11 +237,11 @@ int	cmd_kick(Command& cmd, Server& serv) {
 
 	if (!client) return 1;
 	if (!client->isRegistered()) {
-		serv.sndmsg(*client, Reply::err_notregistered("", client->getNickname()));
+		serv.sndmsg(*client, Reply::err_notregistered(serv.getServerName(), client->getNickname()));
 		return 1;
 	}
 	if (cmd.getArguments().size() < 2) {
-		serv.sndmsg(*client, Reply::err_needmoreparams("", client->getNickname(), "KICK"));
+		serv.sndmsg(*client, Reply::err_needmoreparams(serv.getServerName(), client->getNickname(), "KICK"));
 		return 1;
 	}
 
@@ -245,15 +251,15 @@ int	cmd_kick(Command& cmd, Server& serv) {
 
 	Channel* chan = channels.get_channel(channame);
 	if (!chan) {
-		serv.sndmsg(*client, Reply::err_nosuchchannel("", nick, channame));
+		serv.sndmsg(*client, Reply::err_nosuchchannel(serv.getServerName(), nick, channame));
 		return 1;
 	}
 	if (!chan->hasUser(nick)) {
-		serv.sndmsg(*client, Reply::err_notonchannel("", nick, channame));
+		serv.sndmsg(*client, Reply::err_notonchannel(serv.getServerName(), nick, channame));
 		return 1;
 	}
 	if (!chan->isOp(nick)) {
-		serv.sndmsg(*client, Reply::err_chanoprivsneeded("", nick, channame));
+		serv.sndmsg(*client, Reply::err_chanoprivsneeded(serv.getServerName(), nick, channame));
 		return 1;
 	}
 
@@ -261,7 +267,7 @@ int	cmd_kick(Command& cmd, Server& serv) {
 	for (std::size_t i = 0; i < targets.size(); i++) {
 		const std::string& target = targets[i];
 		if (!chan->hasUser(target)) {
-			serv.sndmsg(*client, Reply::err_usernotinchannel("", nick, target, channame));
+			serv.sndmsg(*client, Reply::err_usernotinchannel(serv.getServerName(), nick, target, channame));
 			continue;
 		}
 		broadcast(serv, chan,
@@ -284,11 +290,11 @@ int	cmd_invite(Command& cmd, Server& serv) {
 
 	if (!client) return 1;
 	if (!client->isRegistered()) {
-		serv.sndmsg(*client, Reply::err_notregistered("", client->getNickname()));
+		serv.sndmsg(*client, Reply::err_notregistered(serv.getServerName(), client->getNickname()));
 		return 1;
 	}
 	if (cmd.getArguments().size() < 2) {
-		serv.sndmsg(*client, Reply::err_needmoreparams("", client->getNickname(), "INVITE"));
+		serv.sndmsg(*client, Reply::err_needmoreparams(serv.getServerName(), client->getNickname(), "INVITE"));
 		return 1;
 	}
 
@@ -298,29 +304,29 @@ int	cmd_invite(Command& cmd, Server& serv) {
 
 	Client* target = clients.get_client(targetNick);
 	if (!target) {
-		serv.sndmsg(*client, Reply::err_nosuchnick("", nick, targetNick));
+		serv.sndmsg(*client, Reply::err_nosuchnick(serv.getServerName(), nick, targetNick));
 		return 1;
 	}
 	Channel* chan = channels.get_channel(channame);
 	if (!chan) {
-		serv.sndmsg(*client, Reply::err_nosuchchannel("", nick, channame));
+		serv.sndmsg(*client, Reply::err_nosuchchannel(serv.getServerName(), nick, channame));
 		return 1;
 	}
 	if (!chan->hasUser(nick)) {
-		serv.sndmsg(*client, Reply::err_notonchannel("", nick, channame));
+		serv.sndmsg(*client, Reply::err_notonchannel(serv.getServerName(), nick, channame));
 		return 1;
 	}
 	if (chan->isInviteOnly() && !chan->isOp(nick)) {
-		serv.sndmsg(*client, Reply::err_chanoprivsneeded("", nick, channame));
+		serv.sndmsg(*client, Reply::err_chanoprivsneeded(serv.getServerName(), nick, channame));
 		return 1;
 	}
 	if (chan->hasUser(targetNick)) {
-		serv.sndmsg(*client, Reply::err_useronchannel("", nick, targetNick, channame));
+		serv.sndmsg(*client, Reply::err_useronchannel(serv.getServerName(), nick, targetNick, channame));
 		return 1;
 	}
 
 	chan->addInvite(targetNick);
-	serv.sndmsg(*client, Reply::rpl_inviting("", nick, targetNick, channame));
+	serv.sndmsg(*client, Reply::rpl_inviting(serv.getServerName(), nick, targetNick, channame));
 	serv.sndmsg(*target, Reply::from_client(*client, "INVITE", targetNick, channame));
 	return 0;
 }
@@ -332,19 +338,27 @@ int	cmd_mode(Command& cmd, Server& serv) {
 
 	if (!client) return 1;
 	if (!client->isRegistered()) {
-		serv.sndmsg(*client, Reply::err_notregistered("", client->getNickname()));
+		serv.sndmsg(*client, Reply::err_notregistered(serv.getServerName(), client->getNickname()));
 		return 1;
 	}
 	if (cmd.getArguments().empty()) {
-		serv.sndmsg(*client, Reply::err_needmoreparams("", client->getNickname(), "MODE"));
+		serv.sndmsg(*client, Reply::err_needmoreparams(serv.getServerName(), client->getNickname(), "MODE"));
 		return 1;
 	}
 
 	const std::string& nick    = client->getNickname();
-	const std::string& channame = cmd.getArguments()[0];
+	const std::string& target  = cmd.getArguments()[0];
+
+	if (target.empty() || (target[0] != '#' && target[0] != '&')) {
+		if (target != nick)
+			serv.sndmsg(*client, Reply::err_usersdontmatch(serv.getServerName(), nick));
+		return 0;
+	}
+
+	const std::string& channame = target;
 	Channel* chan = channels.get_channel(channame);
 	if (!chan) {
-		serv.sndmsg(*client, Reply::err_nosuchchannel("", nick, channame));
+		serv.sndmsg(*client, Reply::err_nosuchchannel(serv.getServerName(), nick, channame));
 		return 1;
 	}
 
@@ -355,12 +369,22 @@ int	cmd_mode(Command& cmd, Server& serv) {
 		if (chan->isTopicRestricted()) modestr += "t";
 		if (chan->hasKey())            modestr += "k";
 		if (chan->getUserLimit() > 0)  modestr += "l";
-		serv.sndmsg(*client, Reply::rpl_channelmodeis("", nick, channame, modestr));
+		serv.sndmsg(*client, Reply::rpl_channelmodeis(serv.getServerName(), nick, channame, modestr));
+		return 0;
+	}
+
+	if (cmd.getArguments().size() == 2 && cmd.getTrailing().empty()
+			&& is_mode_list_query(cmd.getArguments()[1])) {
+		if (!chan->hasUser(nick)) {
+			serv.sndmsg(*client, Reply::err_notonchannel(serv.getServerName(), nick, channame));
+			return 1;
+		}
+		serv.sndmsg(*client, Reply::rpl_endofbanlist(serv.getServerName(), nick, channame));
 		return 0;
 	}
 
 	if (!chan->isOp(nick)) {
-		serv.sndmsg(*client, Reply::err_chanoprivsneeded("", nick, channame));
+		serv.sndmsg(*client, Reply::err_chanoprivsneeded(serv.getServerName(), nick, channame));
 		return 1;
 	}
 
@@ -411,7 +435,7 @@ int	cmd_mode(Command& cmd, Server& serv) {
 				const std::string& tgt = modeargs[argIdx];
 				if (!chan->hasUser(tgt)) {
 					serv.sndmsg(*client,
-						Reply::err_usernotinchannel("", nick, tgt, channame));
+						Reply::err_usernotinchannel(serv.getServerName(), nick, tgt, channame));
 					argIdx++;
 					break;
 				}
@@ -435,7 +459,7 @@ int	cmd_mode(Command& cmd, Server& serv) {
 			}
 			break;
 		default:
-			serv.sndmsg(*client, Reply::err_unknownmode("", nick, c));
+			serv.sndmsg(*client, Reply::err_unknownmode(serv.getServerName(), nick, c));
 			break;
 		}
 	}

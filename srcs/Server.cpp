@@ -25,9 +25,12 @@
 #include <fcntl.h>		// fcntl, F_SETFL, O_NONBLOCK
 #include <poll.h>		// pollfd, POLLIN, POLLOUT
 #include <cerrno>		// errno, EAGAIN, EWOULDBLOCK
+#include <arpa/inet.h>	// inet_ntop, INET_ADDRSTRLEN
+#include <csignal>		// signal, SIGPIPE, SIG_IGN
 
 Server::Server(const std::string& port, const std::string& password)
-	: _port(parsePort(port)), _password(password), _serverSocket(-1) {
+	: _port(parsePort(port)), _password(password), _serverSocket(-1),
+	  _serverName("ft_irc.local") {
 	if (_password.empty())
 		throw std::invalid_argument("password cannot be empty");
 }
@@ -76,6 +79,7 @@ bool	Server::isOnlyDigits(const std::string& text) const {
 }
 
 void	Server::start(){
+	signal(SIGPIPE, SIG_IGN);
 	createSocket();
 	enableAddressReuse();
 	bindSocketToPort();
@@ -235,6 +239,20 @@ void	Server::acceptNewClient(){
 		addSocketToPoll(clientSocket);
 		_receiveBuffers[clientSocket] = "";
 		_sendBuffers[clientSocket] = "";
+		{
+			sockaddr_in	peerAddr;
+			socklen_t	peerLen = sizeof(peerAddr);
+			std::string	hostname = "127.0.0.1";
+
+			std::memset(&peerAddr, 0, sizeof(peerAddr));
+			if (getpeername(clientSocket, reinterpret_cast<sockaddr*>(&peerAddr),
+					&peerLen) == 0) {
+				char ip[INET_ADDRSTRLEN];
+				if (inet_ntop(AF_INET, &peerAddr.sin_addr, ip, sizeof(ip)) != NULL)
+					hostname = ip;
+			}
+			_peerHostnames[clientSocket] = hostname;
+		}
 		std::cout << "Client connected on fd " << clientSocket << std::endl;
 	}
 }
@@ -261,7 +279,11 @@ bool	Server::readFromClient(std::size_t pollIndex){
 		return (false);
 	}
 	bufferClientInput(clientSocket, buffer, static_cast<std::size_t>(bytesRead));
-	return (true);
+	for (std::size_t i = 0; i < _pollFds.size(); i++) {
+		if (_pollFds[i].fd == clientSocket)
+			return (true);
+	}
+	return (false);
 }
 
 // close a client socket and remove it from the poll list
@@ -291,6 +313,7 @@ void	Server::disconnectClient(std::size_t pollIndex){
 	_clients.remove_client(clientSocket);
 	_receiveBuffers.erase(clientSocket);
 	_sendBuffers.erase(clientSocket);
+	_peerHostnames.erase(clientSocket);
 	close(clientSocket);
 	_pollFds.erase(_pollFds.begin() + pollIndex);
 
@@ -303,11 +326,12 @@ void	Server::queueMessage(int clientSocket, const std::string& message){
 	if (message.empty())
 		return;
 	if (_sendBuffers.find(clientSocket) == _sendBuffers.end())
-		return;
+		_sendBuffers[clientSocket] = "";
 
 	// The caller provides the complete IRC message, including "\r\n".
 	_sendBuffers[clientSocket].append(message);
 	setWriteMonitoring(clientSocket, true);
+	flushSendBuffer(clientSocket);
 }
 
 // control whether poll() should report when a client socket can accept data
@@ -363,15 +387,53 @@ bool	Server::sendBufferedData(std::size_t pollIndex){
 	return (true);
 }
 
+void	Server::flushSendBuffer(int clientSocket){
+	std::map<int, std::string>::iterator	bufferIt = _sendBuffers.find(clientSocket);
+
+	if (bufferIt == _sendBuffers.end() || bufferIt->second.empty())
+		return;
+
+	while (!bufferIt->second.empty()) {
+		ssize_t	bytesSent = send(clientSocket, bufferIt->second.c_str(),
+				bufferIt->second.length(), 0);
+		if (bytesSent == -1) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+				break;
+			if (errno == EPIPE) {
+				disconnectClient(clientSocket);
+				return;
+			}
+			break;
+		}
+		bufferIt->second.erase(0, static_cast<std::size_t>(bytesSent));
+	}
+
+	if (bufferIt->second.empty())
+		setWriteMonitoring(clientSocket, false);
+}
+
 int	Server::sndmsg(const Client& clnt, const std::string& msg) {
 	queueMessage(clnt.getFd(), msg);
 	return (0);
 }
 
 void	Server::disconnectClient(int fd) {
+	if (_clients.get_client_fd(fd) == NULL
+		&& _receiveBuffers.find(fd) == _receiveBuffers.end()
+		&& _sendBuffers.find(fd) == _sendBuffers.end()) {
+		for (std::size_t i = 0; i < _pollFds.size(); i++) {
+			if (_pollFds[i].fd == fd) {
+				close(fd);
+				_pollFds.erase(_pollFds.begin() + i);
+				break;
+			}
+		}
+		return;
+	}
 	_clients.remove_client(fd);
 	_receiveBuffers.erase(fd);
 	_sendBuffers.erase(fd);
+	_peerHostnames.erase(fd);
 	for (std::size_t i = 0; i < _pollFds.size(); i++) {
 		if (_pollFds[i].fd == fd) {
 			close(fd);
@@ -405,6 +467,8 @@ void	Server::processClientBuffer(int clientSocket){
 			command.erase(command.length() - 1);
 		if (command.empty() == false)
 			handleCompleteCommand(clientSocket, command);
+		if (_receiveBuffers.find(clientSocket) == _receiveBuffers.end())
+			return;
 
 		lineEnd = clientBuffer.find('\n');
 	}
@@ -436,4 +500,16 @@ Channels&	Server::getChannels(){
 
 const std::string&	Server::getPassword() const {
 	return _password;
+}
+
+const std::string&	Server::getServerName() const {
+	return _serverName;
+}
+
+std::string	Server::getPeerHostname(int fd) const {
+	std::map<int, std::string>::const_iterator it = _peerHostnames.find(fd);
+
+	if (it != _peerHostnames.end())
+		return it->second;
+	return "127.0.0.1";
 }

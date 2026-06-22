@@ -659,6 +659,7 @@ TEST(bug_user_does_not_trust_client_hostname)
 	Client* c = serv.getClients().get_client("alice");
 	ASSERT(c != NULL);
 	ASSERT(c->getHostname() != "spoofed.evil.host");
+	ASSERT(!c->getHostname().empty());
 	close_peer(p);
 }
 

@@ -10,6 +10,7 @@ static const CmdCase	g_known_cmds[] = {
 	{ "PASS",    CmdType::PASS },
 	{ "NICK",    CmdType::NICK },
 	{ "USER",    CmdType::USER },
+	{ "CAP",     CmdType::CAP },
 	{ "OPER",    CmdType::OPER },
 	{ "MODE",    CmdType::MODE },
 	{ "SERVICE", CmdType::SERVICE },

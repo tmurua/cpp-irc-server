@@ -186,6 +186,7 @@ TEST(handler_full_registration_sequence_sends_welcome_burst)
 	dispatch(serv, p.srv_fd, "USER alice 0 * :Alice");
 	std::string out = drain(p.cap_fd);
 	ASSERT(has(out, "001"));
+	ASSERT(has(out, "ft_irc.local 001"));
 	ASSERT(has(out, "002"));
 	ASSERT(has(out, "003"));
 	ASSERT(has(out, "004"));

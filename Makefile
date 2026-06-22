@@ -40,6 +40,9 @@ $(TEST_NAME): $(TEST_OBJ) $(TEST_LIBOBJ)
 test_run: test
 	./$(TEST_NAME)
 
+integration_test:
+	python3 scripts/integration_test.py
+
 %.o : %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -53,5 +56,5 @@ fclean: clean
 
 re: fclean all
 
-.PHONY: all clean fclean re test test_run
+.PHONY: all clean fclean re test test_run integration_test
 .SILENT:

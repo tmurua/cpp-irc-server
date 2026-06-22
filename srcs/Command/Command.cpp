@@ -136,6 +136,8 @@ static std::map<CmdType::Type, Handler>&	get_handlers()
 		handlers[CmdType::NOTICE]  = &cmd_notice;
 		handlers[CmdType::PING]    = &cmd_ping;
 		handlers[CmdType::PONG]    = &cmd_pong;
+		handlers[CmdType::CAP]     = &cmd_cap;
+		handlers[CmdType::WHO]     = &cmd_who;
 	}
 	return handlers;
 }
