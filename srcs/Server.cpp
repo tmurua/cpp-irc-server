@@ -6,7 +6,7 @@
 /*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 18:03:21 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/15 18:24:57 by johartma         ###   ########.fr       */
+/*   Updated: 2026/06/21 17:12:57 by tmurua           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,11 +19,11 @@
 #include <stdexcept>	// std::invalid_argument, std::runtime_error
 #include <unistd.h>		// close
 #include <cstdlib>		// std::strtol
-#include <sys/socket.h>	// socket, setsockopt, bind, listen, accept, send
+#include <sys/socket.h>	// socket, setsockopt, bind, listen, accept, send, recv
 #include <cstring>		// std::memset
 #include <netinet/in.h>	// sockaddr_in, htons, INADDR_ANY
 #include <fcntl.h>		// fcntl, F_SETFL, O_NONBLOCK
-#include <poll.h>		// pollfd, POLLIN
+#include <poll.h>		// pollfd, POLLIN, POLLOUT
 #include <cerrno>		// errno, EAGAIN, EWOULDBLOCK
 
 Server::Server(const std::string& port, const std::string& password)
@@ -203,6 +203,10 @@ bool	Server::handleClientEvent(std::size_t pollIndex, short returnedEvents){
 		disconnectClient(pollIndex);
 		return (false);
 	}
+	if (returnedEvents & POLLOUT){
+		if (sendBufferedData(pollIndex) == false)
+			return (false);
+	}
 	//	if POLLIN is also set, let recv() drain available data first;
 	//	a later recv() returning 0 will disconnect the client
 	if ((returnedEvents & POLLHUP) && (returnedEvents & POLLIN) == 0){
@@ -230,6 +234,7 @@ void	Server::acceptNewClient(){
 		setSocketNonBlocking(clientSocket);
 		addSocketToPoll(clientSocket);
 		_receiveBuffers[clientSocket] = "";
+		_sendBuffers[clientSocket] = "";
 		std::cout << "Client connected on fd " << clientSocket << std::endl;
 	}
 }
@@ -285,6 +290,7 @@ void	Server::disconnectClient(std::size_t pollIndex){
 
 	_clients.remove_client(clientSocket);
 	_receiveBuffers.erase(clientSocket);
+	_sendBuffers.erase(clientSocket);
 	close(clientSocket);
 	_pollFds.erase(_pollFds.begin() + pollIndex);
 
@@ -292,14 +298,80 @@ void	Server::disconnectClient(std::size_t pollIndex){
 		<< clientSocket << std::endl;
 }
 
+// store outgoing data until poll() reports that the socket is ready to write
+void	Server::queueMessage(int clientSocket, const std::string& message){
+	if (message.empty())
+		return;
+	if (_sendBuffers.find(clientSocket) == _sendBuffers.end())
+		return;
+
+	// The caller provides the complete IRC message, including "\r\n".
+	_sendBuffers[clientSocket].append(message);
+	setWriteMonitoring(clientSocket, true);
+}
+
+// control whether poll() should report when a client socket can accept data
+void	Server::setWriteMonitoring(int clientSocket, bool enabled){
+	std::size_t	i;
+
+	i = 0;
+	while (i < _pollFds.size()){
+		if (_pollFds[i].fd == clientSocket){
+			if (enabled)
+				_pollFds[i].events |= POLLOUT;
+			else
+				_pollFds[i].events &= ~POLLOUT;
+			return;
+		}
+		i++;
+	}
+}
+
+// send as much queued data as the non-blocking client socket currently accepts
+bool	Server::sendBufferedData(std::size_t pollIndex){
+	std::map<int, std::string>::iterator	bufferIt;
+	int									clientSocket;
+	ssize_t								bytesSent;
+
+	clientSocket = _pollFds[pollIndex].fd;
+	bufferIt = _sendBuffers.find(clientSocket);
+
+	if (bufferIt == _sendBuffers.end())
+		return (true);
+	if (bufferIt->second.empty()){
+		setWriteMonitoring(clientSocket, false);
+		return (true);
+	}
+
+	bytesSent = send(clientSocket, bufferIt->second.c_str(),
+			bufferIt->second.length(), 0);
+	if (bytesSent == -1){
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+			return (true);
+		std::cerr << "Failed to send data to client fd "
+			<< clientSocket << std::endl;
+		disconnectClient(pollIndex);
+		return (false);
+	}
+
+	// send() may write only part of the message, so keep the remainder.
+	bufferIt->second.erase(0, static_cast<std::size_t>(bytesSent));
+
+	if (bufferIt->second.empty())
+		setWriteMonitoring(clientSocket, false);
+
+	return (true);
+}
+
 int	Server::sndmsg(const Client& clnt, const std::string& msg) {
-	send(clnt.getFd(), msg.c_str(), msg.size(), 0);
-	return 0;
+	queueMessage(clnt.getFd(), msg);
+	return (0);
 }
 
 void	Server::disconnectClient(int fd) {
 	_clients.remove_client(fd);
 	_receiveBuffers.erase(fd);
+	_sendBuffers.erase(fd);
 	for (std::size_t i = 0; i < _pollFds.size(); i++) {
 		if (_pollFds[i].fd == fd) {
 			close(fd);
