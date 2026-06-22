@@ -3,12 +3,8 @@
 
 Starts ircserv (unless --no-server), connects many clients, and exercises
 registration, CAP/PING, all channel modes (+i +t +k +l +o, ban list query),
-JOIN/PART/KICK/INVITE/TOPIC/PRIVMSG/NOTICE/NICK/WHO, and a 20-user channel.
-
-Usage:
-  make integration_test
-  python3 scripts/integration_test.py [--port 16667] [--password testpass]
-  python3 scripts/integration_test.py --no-server   # against a running server
+JOIN/PART/KICK/INVITE/TOPIC/PRIVMSG/NOTICE/NICK/WHO, fragmented commands,
+and a 20-user channel.
 """
 
 from __future__ import print_function
@@ -441,6 +437,105 @@ def test_combined_modes(host, port, password, clients):
     c.expect(out, " 324 ", "+itk")
 
 
+def _raw_connect(host, port):
+    sock = socket.create_connection((host, port))
+    sock.settimeout(0.5)
+    return sock
+
+
+def _raw_collect(sock, timeout=0.6):
+    deadline = time.time() + timeout
+    chunks = []
+    while time.time() < deadline:
+        try:
+            data = sock.recv(8192)
+        except socket.error:
+            break
+        if not data:
+            break
+        chunks.append(data.decode("utf-8", errors="replace"))
+    return "".join(chunks)
+
+
+def test_partial_pass_registration(host, port, password, clients):
+    """PASS split across two TCP writes must still register."""
+    sock = _raw_connect(host, port)
+    clients.append(_RawCloser(sock))
+    sock.sendall(b"PAS")
+    time.sleep(0.15)
+    sock.sendall(("S %s\r\n" % password).encode("utf-8"))
+    sock.sendall(b"NICK prt01\r\nUSER prt01 0 * :partial\r\n")
+    out = _raw_collect(sock)
+    if " 001 " not in out:
+        raise AssertionError("expected 001 after split PASS, got: %s" % out[:300])
+
+
+def test_partial_command_other_client_ok(host, port, password, clients):
+    """An incomplete line on one fd must not block other clients."""
+    slow = _raw_connect(host, port)
+    clients.append(_RawCloser(slow))
+    slow.sendall(b"JOIN #parti")  # no CRLF yet
+    time.sleep(0.1)
+
+    fast = mk(host, port, password, clients, "fast01")
+    fast.register("fast01")
+    fast.command("JOIN #partial")
+    out = fast.command("PRIVMSG #partial :still works")
+    fast.expect_none(out, "still works")
+    out = fast.collect(0.3)
+    # no erroneous reply to the partial line
+    fast.expect_none(out, " 403 ", " 451 ", " 421 ")
+
+
+def test_partial_privmsg_delivered_after_chunks(host, port, password, clients):
+    """A PRIVMSG split across several writes is handled as one command."""
+    sender = mk(host, port, password, clients, "chunk_s")
+    receiver = mk(host, port, password, clients, "chunk_r")
+    sender.register("chunk_s")
+    receiver.register("chunk_r")
+    sender.command("JOIN #chunks")
+    receiver.command("JOIN #chunks")
+    receiver.collect(0.2)
+
+    sock = sender.sock
+    parts = [
+        b"PRIVMSG #chunks :hel",
+        b"lo ",
+        b"world\r\n",
+    ]
+    for part in parts:
+        sock.sendall(part)
+        time.sleep(0.05)
+    out = receiver.collect(0.5)
+    receiver.expect(out, "PRIVMSG", "hello world")
+
+
+def test_disconnect_mid_command(host, port, password, clients):
+    """Client killed mid-command must not break the server for new clients."""
+    dead = _raw_connect(host, port)
+    dead.sendall(b"PRIVMSG #ghost :unfin")
+    dead.close()
+
+    time.sleep(0.15)
+    c = mk(host, port, password, clients, "after_k")
+    c.register("after_k")
+    out = c.command("PING ft_irc.local")
+    c.expect(out, "PONG")
+
+
+class _RawCloser(object):
+    """Wraps a raw socket so Suite.run() closes it in finally."""
+
+    def __init__(self, sock):
+        self.sock = sock
+
+    def close(self):
+        try:
+            self.sock.close()
+        except socket.error:
+            pass
+
+
 # ── Server helpers ────────────────────────────────────────────────────────────
 
 def find_ircserv(root):
@@ -505,6 +600,10 @@ TESTS = [
     ("PRIVMSG no such nick (401)", test_privmsg_no_such_nick),
     ("PRIVMSG no text (412)", test_privmsg_no_text),
     ("combined +itk modes", test_combined_modes),
+    ("partial PASS registration", test_partial_pass_registration),
+    ("partial cmd other client ok", test_partial_command_other_client_ok),
+    ("partial PRIVMSG in chunks", test_partial_privmsg_delivered_after_chunks),
+    ("disconnect mid-command", test_disconnect_mid_command),
 ]
 
 

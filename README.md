@@ -58,13 +58,48 @@ Example:
 ./ircserv 6667 secretpass
 ```
 
+The server listens on all local IPv4 interfaces (`0.0.0.0`) on the given port.
+
 ### Reference Client
 
-TODO
+[irssi](https://irssi.org/) is the reference client used during development.
+
+Start the server, then connect from irssi:
+
+```text
+/connect localhost 6667 secretpass
+```
+
+Useful irssi commands once connected:
+
+```text
+/join #lobby
+/msg alice hello          # opens a query window for direct messages
+/rawlog open              # show raw server traffic for debugging
+```
+
+### Demo bots
+
+`scripts/demo_bots.py` starts the server and connects a few bots that join channels and auto-reply to `PRIVMSG`. Useful for manual demos during evaluation.
+
+```bash
+python3 scripts/demo_bots.py
+python3 scripts/demo_bots.py --no-server --port 6667 --password secretpass
+```
 
 ## Features
 
-TODO
+- Non-blocking I/O with a single `poll()` event loop
+- Client registration: `PASS`, `NICK`, `USER`, minimal `CAP` handling
+- Channels: `JOIN`, `PART`, `TOPIC`, `INVITE`, `KICK`, `MODE`
+- Messaging: `PRIVMSG`, `NOTICE` (channel and direct)
+- Channel modes: `+i` (invite-only), `+t` (topic restricted), `+k` (key), `+l` (user limit), `+o` (channel operator)
+- First user to create a channel is automatically made operator
+- `NICK` changes relayed to shared channels, `WHO`, `PING`/`PONG`
+- Fragmented TCP input reassembled before command dispatch
+- `&` local channels and `#` public channels
+
+Not implemented: server-to-server links, DCC file transfer, `OPER`, `WHOIS`, and setting ban entries (`+b`).
 
 ## Technical Notes
 
@@ -73,17 +108,6 @@ The server must use non-blocking I/O and handle multiple clients without hanging
 All socket operations for reading, writing, listening, and accepting connections must be handled through one `poll()` call or an equivalent mechanism.
 
 Incoming TCP data may arrive in fragments, so complete IRC commands must be rebuilt before being processed.
-
-## Testing
-
-Unit tests cover command parsing (`CmdTypes.cpp`, `Command.cpp`).
-
-```bash
-make test       # build unit tests
-make test_run   # build and run
-```
-
-Integration tests against a live server are planned.
 
 ## Resources
 
@@ -94,7 +118,7 @@ Integration tests against a live server are planned.
 - [RFC 2811 — Internet Relay Chat: Channel Management](https://datatracker.ietf.org/doc/html/rfc2811)
 - [RFC 2812 — Internet Relay Chat: Client Protocol](https://datatracker.ietf.org/doc/html/rfc2812)
 - [RFC 2813 — Internet Relay Chat: Server Protocol](https://datatracker.ietf.org/doc/html/rfc2813)
-- [dd.ircdocs.horse] https://dd.ircdocs.horse/refs/commands/user
+- [dd.ircdocs.horse](https://dd.ircdocs.horse/refs/commands/user)
 
 ### Network Programming
 
