@@ -78,15 +78,6 @@ Useful irssi commands once connected:
 /rawlog open              # show raw server traffic for debugging
 ```
 
-### Demo bots
-
-`scripts/demo_bots.py` starts the server and connects a few bots that join channels and auto-reply to `PRIVMSG`. Useful for manual demos during evaluation.
-
-```bash
-python3 scripts/demo_bots.py
-python3 scripts/demo_bots.py --no-server --port 6667 --password secretpass
-```
-
 ## Features
 
 - Non-blocking I/O with a single `poll()` event loop

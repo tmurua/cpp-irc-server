@@ -6,7 +6,7 @@
 /*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 18:03:21 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/21 17:12:57 by tmurua           ###   ########.fr       */
+/*   Updated: 2026/06/22 16:53:09 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -222,11 +222,15 @@ bool	Server::handleClientEvent(std::size_t pollIndex, short returnedEvents){
 
 // accept all waiting client connections and register their sockets with poll()
 void	Server::acceptNewClient(){
-	int	clientSocket;
+	int			clientSocket;
+	sockaddr_in	peerAddr;
+	socklen_t	peerLen;
 
-	// NULL: client's address info not requested
 	while (true){
-		clientSocket = accept(_serverSocket, NULL, NULL); // accept returns new fd
+		std::memset(&peerAddr, 0, sizeof(peerAddr));
+		peerLen = sizeof(peerAddr);
+		clientSocket = accept(_serverSocket,
+				reinterpret_cast<sockaddr*>(&peerAddr), &peerLen);
 		if (clientSocket == -1){
 			// EAGAIN: no client connection is ready; try accept() again later
 			// EWOULDBLOCK: accept would have to wait, but socket is non-blocking
@@ -240,17 +244,11 @@ void	Server::acceptNewClient(){
 		_receiveBuffers[clientSocket] = "";
 		_sendBuffers[clientSocket] = "";
 		{
-			sockaddr_in	peerAddr;
-			socklen_t	peerLen = sizeof(peerAddr);
 			std::string	hostname = "127.0.0.1";
+			char		ip[INET_ADDRSTRLEN];
 
-			std::memset(&peerAddr, 0, sizeof(peerAddr));
-			if (getpeername(clientSocket, reinterpret_cast<sockaddr*>(&peerAddr),
-					&peerLen) == 0) {
-				char ip[INET_ADDRSTRLEN];
-				if (inet_ntop(AF_INET, &peerAddr.sin_addr, ip, sizeof(ip)) != NULL)
-					hostname = ip;
-			}
+			if (inet_ntop(AF_INET, &peerAddr.sin_addr, ip, sizeof(ip)) != NULL)
+				hostname = ip;
 			_peerHostnames[clientSocket] = hostname;
 		}
 		std::cout << "Client connected on fd " << clientSocket << std::endl;
@@ -331,7 +329,6 @@ void	Server::queueMessage(int clientSocket, const std::string& message){
 	// The caller provides the complete IRC message, including "\r\n".
 	_sendBuffers[clientSocket].append(message);
 	setWriteMonitoring(clientSocket, true);
-	flushSendBuffer(clientSocket);
 }
 
 // control whether poll() should report when a client socket can accept data
@@ -385,31 +382,6 @@ bool	Server::sendBufferedData(std::size_t pollIndex){
 		setWriteMonitoring(clientSocket, false);
 
 	return (true);
-}
-
-void	Server::flushSendBuffer(int clientSocket){
-	std::map<int, std::string>::iterator	bufferIt = _sendBuffers.find(clientSocket);
-
-	if (bufferIt == _sendBuffers.end() || bufferIt->second.empty())
-		return;
-
-	while (!bufferIt->second.empty()) {
-		ssize_t	bytesSent = send(clientSocket, bufferIt->second.c_str(),
-				bufferIt->second.length(), 0);
-		if (bytesSent == -1) {
-			if (errno == EAGAIN || errno == EWOULDBLOCK)
-				break;
-			if (errno == EPIPE) {
-				disconnectClient(clientSocket);
-				return;
-			}
-			break;
-		}
-		bufferIt->second.erase(0, static_cast<std::size_t>(bytesSent));
-	}
-
-	if (bufferIt->second.empty())
-		setWriteMonitoring(clientSocket, false);
 }
 
 int	Server::sndmsg(const Client& clnt, const std::string& msg) {

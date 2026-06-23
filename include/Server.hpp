@@ -54,7 +54,6 @@ private:
 	void	processClientBuffer(int clientSocket);
 	void	setWriteMonitoring(int clientSocket, bool enabled);
 	bool	sendBufferedData(std::size_t pollIndex);
-	void	flushSendBuffer(int clientSocket);
 	void	handleCompleteCommand(int clientSocket,
 			const std::string& command);
 
