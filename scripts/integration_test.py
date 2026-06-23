@@ -523,6 +523,287 @@ def test_disconnect_mid_command(host, port, password, clients):
     c.expect(out, "PONG")
 
 
+def test_pass_retry_after_wrong_password(host, port, password, clients):
+    c = mk(host, port, password, clients, "retry")
+    c.send("PASS wrong")
+    out = c.collect(0.3)
+    c.expect(out, " 464 ")
+    c.send("PASS %s" % password)
+    c.send("NICK retry")
+    c.send("USER retry 0 * :Retry")
+    out = c.collect(0.5)
+    c.expect(out, " 001 ")
+
+
+def test_user_before_nick_completes(host, port, password, clients):
+    c = mk(host, port, password, clients, "ubn")
+    c.send("PASS %s" % password)
+    c.send("USER ubn 0 * :User Before Nick")
+    out = c.collect(0.2)
+    c.expect_none(out, " 001 ")
+    c.send("NICK ubn")
+    out = c.collect(0.5)
+    c.expect(out, " 001 ")
+
+
+def test_auth_needmoreparams(host, port, password, clients):
+    c = mk(host, port, password, clients, "nmp")
+    out = c.command("PASS")
+    c.expect(out, " 461 ", "PASS")
+    c.send("PASS %s" % password)
+    out = c.command("NICK")
+    c.expect(out, " 431 ")
+    out = c.command("USER nmp")
+    c.expect(out, " 461 ", "USER")
+
+
+def test_nick_validation(host, port, password, clients):
+    c = mk(host, port, password, clients, "nval")
+    c.send("PASS %s" % password)
+    out = c.command("NICK -bad")
+    c.expect(out, " 432 ")
+    out = c.command("NICK %s" % ("x" * 10))
+    c.expect(out, " 432 ")
+    out = c.command("NICK ok-nick")
+    c.expect_none(out, " 432 ")
+    out = c.command("USER nval 0 * :Nick Val")
+    c.expect_none(out, " 461 ")
+
+
+def test_already_registered_462(host, port, password, clients):
+    c = mk(host, port, password, clients, "regd")
+    c.register("regd")
+    out = c.command("PASS %s" % password)
+    c.expect(out, " 462 ")
+    out = c.command("USER regd 0 * :Again")
+    c.expect(out, " 462 ")
+
+
+def test_partial_registration_451(host, port, password, clients):
+    c = mk(host, port, password, clients, "part")
+    c.send("PASS %s" % password)
+    c.send("NICK part")
+    out = c.command("JOIN #partial451")
+    c.expect(out, " 451 ")
+    out = c.command("PRIVMSG part :hi")
+    c.expect(out, " 451 ")
+
+
+def test_join_errors(host, port, password, clients):
+    c = mk(host, port, password, clients, "jerr")
+    c.register("jerr")
+    out = c.command("JOIN")
+    c.expect(out, " 461 ", "JOIN")
+    out = c.command("JOIN not-a-channel")
+    c.expect(out, " 403 ")
+
+
+def test_part_errors(host, port, password, clients):
+    a = mk(host, port, password, clients, "perr_a")
+    b = mk(host, port, password, clients, "perr_b")
+    a.register("perr_a")
+    b.register("perr_b")
+    out = a.command("PART #ghost")
+    a.expect(out, " 403 ")
+    a.command("JOIN #parterr")
+    b.command("JOIN #parterr")
+    a.command("PART #parterr")
+    out = a.command("PART #parterr")
+    a.expect(out, " 442 ")
+
+
+def test_topic_query_and_clear(host, port, password, clients):
+    op = mk(host, port, password, clients, "tq_op")
+    mem = mk(host, port, password, clients, "tq_mem")
+    op.register("tq_op")
+    mem.register("tq_mem")
+    op.command("JOIN #tqroom")
+    out = op.command("TOPIC #tqroom")
+    op.expect(out, " 331 ")
+    op.command("TOPIC #tqroom :standup notes")
+    out = mem.command("TOPIC #tqroom")
+    mem.expect(out, " 442 ")
+    mem.command("JOIN #tqroom")
+    out = op.command("TOPIC #tqroom")
+    op.expect(out, " 332 ", "standup notes")
+    out = op.command("TOPIC #tqroom :")
+    op.expect(out, "TOPIC")
+    out = op.command("TOPIC #tqroom")
+    op.expect(out, " 331 ")
+
+
+def test_kick_target_not_in_channel(host, port, password, clients):
+    op = mk(host, port, password, clients, "kop2")
+    op.register("kop2")
+    op.command("JOIN #kick441")
+    out = op.command("KICK #kick441 ghost :bye")
+    op.expect(out, " 441 ")
+
+
+def test_invite_errors(host, port, password, clients):
+    op = mk(host, port, password, clients, "invop")
+    mem = mk(host, port, password, clients, "invmem")
+    guest = mk(host, port, password, clients, "invgst")
+    op.register("invop")
+    mem.register("invmem")
+    guest.register("invgst")
+    op.command("JOIN #invroom")
+    mem.command("JOIN #invroom")
+    out = op.command("INVITE invmem #invroom")
+    op.expect(out, " 443 ")
+    out = op.command("INVITE nobody #invroom")
+    op.expect(out, " 401 ")
+    out = mem.command("INVITE invgst #invroom")
+    mem.expect(out, " 341 ")
+    out = guest.collect(0.3)
+    guest.expect(out, "INVITE")
+
+
+def test_mode_errors(host, port, password, clients):
+    op = mk(host, port, password, clients, "mop")
+    mem = mk(host, port, password, clients, "mmem")
+    op.register("mop")
+    mem.register("mmem")
+    op.command("JOIN #moderr")
+    mem.command("JOIN #moderr")
+    out = mem.command("MODE")
+    mem.expect(out, " 461 ", "MODE")
+    out = op.command("MODE #moderr +z")
+    op.expect(out, " 472 ")
+    out = mem.command("MODE #moderr +i")
+    mem.expect(out, " 482 ")
+    out = op.command("MODE mmem +i")
+    op.expect(out, " 502 ")
+
+
+def test_privmsg_no_target(host, port, password, clients):
+    c = mk(host, port, password, clients, "p411")
+    c.register("p411")
+    out = c.command("PRIVMSG")
+    c.expect(out, " 411 ")
+
+
+def test_unknown_command_421(host, port, password, clients):
+    c = mk(host, port, password, clients, "unk")
+    c.register("unk")
+    out = c.command("FOOBAR")
+    c.expect(out, " 421 ")
+
+
+def test_cap_req_nak(host, port, password, clients):
+    c = mk(host, port, password, clients, "capnak")
+    c.send("PASS %s" % password)
+    c.send("NICK capnak")
+    out = c.command("CAP REQ :multi-prefix")
+    c.expect(out, "CAP * NAK")
+
+
+def test_ping_with_token(host, port, password, clients):
+    c = mk(host, port, password, clients, "pingtok")
+    c.register("pingtok")
+    out = c.command("PING :hello-token")
+    c.expect(out, "PONG", "hello-token")
+
+
+def test_quit_broadcasts(host, port, password, clients):
+    a = mk(host, port, password, clients, "quit_a")
+    b = mk(host, port, password, clients, "quit_b")
+    a.register("quit_a")
+    b.register("quit_b")
+    a.command("JOIN #quitroom")
+    b.command("JOIN #quitroom")
+    b.collect(0.2)
+    a.command("QUIT :leaving now")
+    out = b.collect(0.4)
+    b.expect(out, "QUIT", "leaving now")
+
+
+def test_join_multiple_channels(host, port, password, clients):
+    c = mk(host, port, password, clients, "multi")
+    c.register("multi")
+    out = c.command("JOIN #one,#two")
+    c.expect(out, "JOIN #one")
+    c.expect(out, "JOIN #two")
+
+
+def test_join_already_member_no_rebroadcast(host, port, password, clients):
+    a = mk(host, port, password, clients, "reb_a")
+    b = mk(host, port, password, clients, "reb_b")
+    a.register("reb_a")
+    b.register("reb_b")
+    a.command("JOIN #rebro")
+    b.command("JOIN #rebro")
+    b.collect(0.2)
+    a.command("JOIN #rebro")
+    out = b.collect(0.3)
+    b.expect_none(out, "JOIN")
+
+
+def test_mode_op_demote(host, port, password, clients):
+    op = mk(host, port, password, clients, "dem_op")
+    mem = mk(host, port, password, clients, "dem_mem")
+    op.register("dem_op")
+    mem.register("dem_mem")
+    op.command("JOIN #demote")
+    mem.command("JOIN #demote")
+    op.command("MODE #demote +o dem_mem")
+    op.command("MODE #demote +t")
+    op.command("MODE #demote -o dem_mem")
+    out = mem.command("TOPIC #demote :blocked again")
+    mem.expect(out, " 482 ")
+
+
+def test_nick_change_preserves_invite(host, port, password, clients):
+    op = mk(host, port, password, clients, "ninv_op")
+    guest = mk(host, port, password, clients, "ninv_gs")
+    op.register("ninv_op")
+    guest.register("ninv_gs")
+    op.command("JOIN #ninv")
+    op.command("MODE #ninv +i")
+    op.command("INVITE ninv_gs #ninv")
+    guest.command("NICK ninv_new")
+    out = guest.command("JOIN #ninv")
+    guest.expect(out, "JOIN #ninv")
+    guest.expect_none(out, " 473 ")
+
+
+def test_mode_plus_k_without_arg(host, port, password, clients):
+    c = mk(host, port, password, clients, "knoarg")
+    c.register("knoarg")
+    c.command("JOIN #knoarg")
+    out = c.command("MODE #knoarg +k")
+    c.expect_none(out, "MODE #knoarg +k")
+    out = c.command("MODE #knoarg")
+    c.expect_none(out, "+k")
+
+
+def test_kick_multiple_targets(host, port, password, clients):
+    op = mk(host, port, password, clients, "km_op")
+    a = mk(host, port, password, clients, "km_a")
+    b = mk(host, port, password, clients, "km_b")
+    op.register("km_op")
+    a.register("km_a")
+    b.register("km_b")
+    op.command("JOIN #kmulti")
+    a.command("JOIN #kmulti")
+    b.command("JOIN #kmulti")
+    op.command("KICK #kmulti km_a,km_b :both out")
+    out = "\n".join(a.collect(0.4)) + "\n" + "\n".join(b.collect(0.4))
+    if "KICK" not in out or "km_b" not in out:
+        raise AssertionError("expected KICK for both targets, got: %s" % out[:300])
+
+
+def test_malformed_prefix_no_crash(host, port, password, clients):
+    sock = _raw_connect(host, port)
+    clients.append(_RawCloser(sock))
+    sock.sendall(b":onlyprefix\r\n")
+    time.sleep(0.1)
+    c = mk(host, port, password, clients, "after_bad")
+    c.register("after_bad")
+    out = c.command("PING ft_irc.local")
+    c.expect(out, "PONG")
+
+
 class _RawCloser(object):
     """Wraps a raw socket so Suite.run() closes it in finally."""
 
@@ -604,6 +885,30 @@ TESTS = [
     ("partial cmd other client ok", test_partial_command_other_client_ok),
     ("partial PRIVMSG in chunks", test_partial_privmsg_delivered_after_chunks),
     ("disconnect mid-command", test_disconnect_mid_command),
+    ("PASS retry after wrong password", test_pass_retry_after_wrong_password),
+    ("USER before NICK completes", test_user_before_nick_completes),
+    ("auth needmoreparams (461/431)", test_auth_needmoreparams),
+    ("nick validation (432)", test_nick_validation),
+    ("already registered (462)", test_already_registered_462),
+    ("partial registration (451)", test_partial_registration_451),
+    ("JOIN errors (461/403)", test_join_errors),
+    ("PART errors (403/442)", test_part_errors),
+    ("TOPIC query and clear", test_topic_query_and_clear),
+    ("KICK target not in channel (441)", test_kick_target_not_in_channel),
+    ("INVITE errors (401/443)", test_invite_errors),
+    ("MODE errors (461/472/502)", test_mode_errors),
+    ("PRIVMSG no target (411)", test_privmsg_no_target),
+    ("unknown command (421)", test_unknown_command_421),
+    ("CAP REQ NAK", test_cap_req_nak),
+    ("PING with token", test_ping_with_token),
+    ("QUIT broadcasts", test_quit_broadcasts),
+    ("JOIN multiple channels", test_join_multiple_channels),
+    ("JOIN already member no rebroadcast", test_join_already_member_no_rebroadcast),
+    ("MODE -o demote", test_mode_op_demote),
+    ("nick change preserves invite", test_nick_change_preserves_invite),
+    ("MODE +k without arg", test_mode_plus_k_without_arg),
+    ("KICK multiple targets", test_kick_multiple_targets),
+    ("malformed prefix no crash", test_malformed_prefix_no_crash),
 ]
 
 
