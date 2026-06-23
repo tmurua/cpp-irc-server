@@ -9,5 +9,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build and run unit tests
-        run: make test_run
+      - name: Build and run integration tests
+        run: make integration_test

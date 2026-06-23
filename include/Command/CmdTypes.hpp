@@ -16,7 +16,7 @@
 
 namespace CmdType {
     enum Type {
-        PASS, NICK, USER, OPER, MODE, SERVICE, QUIT, SQUIT, //Auth
+        PASS, NICK, USER, CAP, OPER, MODE, SERVICE, QUIT, SQUIT, //Auth
         JOIN, PART, TOPIC, NAMES, LIST, INVITE, KICK, // Channels
         PRIVMSG, NOTICE, // Messages
         MOTD, LUSERS, VERSION, STATS, LINKS,

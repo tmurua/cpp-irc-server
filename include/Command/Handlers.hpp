@@ -56,6 +56,8 @@ int	cmd_notice(Command& cmd, Server& serv);
 // Misc / connection (srcs/Command/handlers/misc.cpp)
 int	cmd_ping(Command& cmd, Server& serv);
 int	cmd_pong(Command& cmd, Server& serv);
+int	cmd_cap(Command& cmd, Server& serv);
+int	cmd_who(Command& cmd, Server& serv);
 int	cmd_unknown(Command& cmd, Server& serv);
 
 #endif

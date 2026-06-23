@@ -99,6 +99,32 @@ std::string rpl_endofnames(const std::string& server, const std::string& nick,
 	return from_server(server, "366", nick + " " + channel, "End of NAMES list");
 }
 
+std::string rpl_whoreply(const std::string& server, const std::string& nick,
+                         const Client& member, const std::string& channel,
+                         const std::string& flags)
+{
+	std::string realname = member.getRealname().empty()
+		? member.getNickname() : member.getRealname();
+	return from_server(server, "352",
+		nick + " " + channel + " " + member.getUsername() + " "
+		+ member.getHostname() + " " + server + " " + member.getNickname()
+		+ " " + flags,
+		"0 " + realname);
+}
+
+std::string rpl_endofwho(const std::string& server, const std::string& nick,
+                         const std::string& name)
+{
+	return from_server(server, "315", nick + " " + name, "End of WHO list");
+}
+
+std::string rpl_endofbanlist(const std::string& server, const std::string& nick,
+                             const std::string& channel)
+{
+	return from_server(server, "368", nick + " " + channel,
+		"End of Channel Ban List");
+}
+
 std::string rpl_channelmodeis(const std::string& server, const std::string& nick,
                               const std::string& channel, const std::string& modestring)
 {
@@ -201,7 +227,8 @@ std::string err_alreadyregistred(const std::string& server, const std::string& n
 
 std::string err_notregistered(const std::string& server, const std::string& nick)
 {
-	return from_server(server, "451", nick, "You have not registered");
+	const std::string& target = nick.empty() ? std::string("*") : nick;
+	return from_server(server, "451", target, "You have not registered");
 }
 
 std::string err_passwdmismatch(const std::string& server, const std::string& nick)
@@ -235,6 +262,11 @@ std::string err_chanoprivsneeded(const std::string& server, const std::string& n
 {
 	return from_server(server, "482", nick + " " + channel,
 		"You're not channel operator");
+}
+
+std::string err_usersdontmatch(const std::string& server, const std::string& nick)
+{
+	return from_server(server, "502", nick, "Cant change mode for other users");
 }
 
 std::string err_unknownmode(const std::string& server, const std::string& nick,

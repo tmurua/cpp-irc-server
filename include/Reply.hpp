@@ -86,6 +86,19 @@ namespace Reply {
 	std::string rpl_endofnames(const std::string& server, const std::string& nick,
 	                           const std::string& channel);
 
+	// RPL_WHOREPLY (352) — one line of a WHO reply.
+	std::string rpl_whoreply(const std::string& server, const std::string& nick,
+	                         const Client& member, const std::string& channel,
+	                         const std::string& flags);
+
+	// RPL_ENDOFWHO (315) — terminates a WHO reply.
+	std::string rpl_endofwho(const std::string& server, const std::string& nick,
+	                         const std::string& name);
+
+	// RPL_ENDOFBANLIST (368) — empty ban/exception/invite-exempt list.
+	std::string rpl_endofbanlist(const std::string& server, const std::string& nick,
+	                             const std::string& channel);
+
 	// ── Error numerics ────────────────────────────────────────────────────────
 
 	// ERR_NOSUCHNICK (401) — target of PRIVMSG, NOTICE, KICK, or INVITE does
@@ -177,6 +190,9 @@ namespace Reply {
 	//   because the issuing client is not a channel operator.
 	std::string err_chanoprivsneeded(const std::string& server, const std::string& nick,
 	                                 const std::string& channel);
+
+	// ERR_USERSDONTMATCH (502) — user MODE attempted on another client's nick.
+	std::string err_usersdontmatch(const std::string& server, const std::string& nick);
 
 	// ERR_USERNOTINCHANNEL (441) — KICK target is not a member of the channel.
 	std::string err_usernotinchannel(const std::string& server, const std::string& nick,

@@ -29,6 +29,8 @@ private:
 	std::vector<pollfd>			_pollFds;
 	std::map<int, std::string>	_receiveBuffers;
 	std::map<int, std::string>	_sendBuffers;
+	std::map<int, std::string>	_peerHostnames;
+	std::string					_serverName;
 	Channels			_channels;
 	Clients				_clients;
 
@@ -69,6 +71,8 @@ public:
 	Clients&				getClients();
 	Channels&				getChannels();
 	const std::string&		getPassword() const;
+	const std::string&		getServerName() const;
+	std::string				getPeerHostname(int fd) const;
 };
 
 # endif

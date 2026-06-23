@@ -6,7 +6,7 @@
 /*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 18:03:21 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/21 17:12:57 by tmurua           ###   ########.fr       */
+/*   Updated: 2026/06/22 16:53:09 by johartma         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -25,9 +25,12 @@
 #include <fcntl.h>		// fcntl, F_SETFL, O_NONBLOCK
 #include <poll.h>		// pollfd, POLLIN, POLLOUT
 #include <cerrno>		// errno, EAGAIN, EWOULDBLOCK
+#include <arpa/inet.h>	// inet_ntop, INET_ADDRSTRLEN
+#include <csignal>		// signal, SIGPIPE, SIG_IGN
 
 Server::Server(const std::string& port, const std::string& password)
-	: _port(parsePort(port)), _password(password), _serverSocket(-1) {
+	: _port(parsePort(port)), _password(password), _serverSocket(-1),
+	  _serverName("ft_irc.local") {
 	if (_password.empty())
 		throw std::invalid_argument("password cannot be empty");
 }
@@ -76,6 +79,7 @@ bool	Server::isOnlyDigits(const std::string& text) const {
 }
 
 void	Server::start(){
+	signal(SIGPIPE, SIG_IGN);
 	createSocket();
 	enableAddressReuse();
 	bindSocketToPort();
@@ -218,11 +222,15 @@ bool	Server::handleClientEvent(std::size_t pollIndex, short returnedEvents){
 
 // accept all waiting client connections and register their sockets with poll()
 void	Server::acceptNewClient(){
-	int	clientSocket;
+	int			clientSocket;
+	sockaddr_in	peerAddr;
+	socklen_t	peerLen;
 
-	// NULL: client's address info not requested
 	while (true){
-		clientSocket = accept(_serverSocket, NULL, NULL); // accept returns new fd
+		std::memset(&peerAddr, 0, sizeof(peerAddr));
+		peerLen = sizeof(peerAddr);
+		clientSocket = accept(_serverSocket,
+				reinterpret_cast<sockaddr*>(&peerAddr), &peerLen);
 		if (clientSocket == -1){
 			// EAGAIN: no client connection is ready; try accept() again later
 			// EWOULDBLOCK: accept would have to wait, but socket is non-blocking
@@ -235,6 +243,14 @@ void	Server::acceptNewClient(){
 		addSocketToPoll(clientSocket);
 		_receiveBuffers[clientSocket] = "";
 		_sendBuffers[clientSocket] = "";
+		{
+			std::string	hostname = "127.0.0.1";
+			char		ip[INET_ADDRSTRLEN];
+
+			if (inet_ntop(AF_INET, &peerAddr.sin_addr, ip, sizeof(ip)) != NULL)
+				hostname = ip;
+			_peerHostnames[clientSocket] = hostname;
+		}
 		std::cout << "Client connected on fd " << clientSocket << std::endl;
 	}
 }
@@ -261,7 +277,11 @@ bool	Server::readFromClient(std::size_t pollIndex){
 		return (false);
 	}
 	bufferClientInput(clientSocket, buffer, static_cast<std::size_t>(bytesRead));
-	return (true);
+	for (std::size_t i = 0; i < _pollFds.size(); i++) {
+		if (_pollFds[i].fd == clientSocket)
+			return (true);
+	}
+	return (false);
 }
 
 // close a client socket and remove it from the poll list
@@ -291,6 +311,7 @@ void	Server::disconnectClient(std::size_t pollIndex){
 	_clients.remove_client(clientSocket);
 	_receiveBuffers.erase(clientSocket);
 	_sendBuffers.erase(clientSocket);
+	_peerHostnames.erase(clientSocket);
 	close(clientSocket);
 	_pollFds.erase(_pollFds.begin() + pollIndex);
 
@@ -303,7 +324,7 @@ void	Server::queueMessage(int clientSocket, const std::string& message){
 	if (message.empty())
 		return;
 	if (_sendBuffers.find(clientSocket) == _sendBuffers.end())
-		return;
+		_sendBuffers[clientSocket] = "";
 
 	// The caller provides the complete IRC message, including "\r\n".
 	_sendBuffers[clientSocket].append(message);
@@ -369,9 +390,22 @@ int	Server::sndmsg(const Client& clnt, const std::string& msg) {
 }
 
 void	Server::disconnectClient(int fd) {
+	if (_clients.get_client_fd(fd) == NULL
+		&& _receiveBuffers.find(fd) == _receiveBuffers.end()
+		&& _sendBuffers.find(fd) == _sendBuffers.end()) {
+		for (std::size_t i = 0; i < _pollFds.size(); i++) {
+			if (_pollFds[i].fd == fd) {
+				close(fd);
+				_pollFds.erase(_pollFds.begin() + i);
+				break;
+			}
+		}
+		return;
+	}
 	_clients.remove_client(fd);
 	_receiveBuffers.erase(fd);
 	_sendBuffers.erase(fd);
+	_peerHostnames.erase(fd);
 	for (std::size_t i = 0; i < _pollFds.size(); i++) {
 		if (_pollFds[i].fd == fd) {
 			close(fd);
@@ -405,6 +439,8 @@ void	Server::processClientBuffer(int clientSocket){
 			command.erase(command.length() - 1);
 		if (command.empty() == false)
 			handleCompleteCommand(clientSocket, command);
+		if (_receiveBuffers.find(clientSocket) == _receiveBuffers.end())
+			return;
 
 		lineEnd = clientBuffer.find('\n');
 	}
@@ -436,4 +472,16 @@ Channels&	Server::getChannels(){
 
 const std::string&	Server::getPassword() const {
 	return _password;
+}
+
+const std::string&	Server::getServerName() const {
+	return _serverName;
+}
+
+std::string	Server::getPeerHostname(int fd) const {
+	std::map<int, std::string>::const_iterator it = _peerHostnames.find(fd);
+
+	if (it != _peerHostnames.end())
+		return it->second;
+	return "127.0.0.1";
 }
