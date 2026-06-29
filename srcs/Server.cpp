@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Server.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
+/*   By: tmurua <tmurua@student.42berlin.de>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 18:03:21 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/22 16:53:09 by johartma         ###   ########.fr       */
+/*   Updated: 2026/06/22 18:13:05 by tmurua           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -284,40 +284,89 @@ bool	Server::readFromClient(std::size_t pollIndex){
 	return (false);
 }
 
-// close a client socket and remove it from the poll list
+// report an unexpected client disconnect to channel members, then clean it up
 void	Server::disconnectClient(std::size_t pollIndex){
-	int	clientSocket = _pollFds[pollIndex].fd;
+	int	clientSocket;
+
+	if (pollIndex >= _pollFds.size())
+		return;
+
+	clientSocket = _pollFds[pollIndex].fd;
 
 	Client* client = _clients.get_client_fd(clientSocket);
-	if (client) {
-		std::string nick    = client->getNickname();
-		std::string quitMsg = Reply::from_client(*client, "QUIT", "", "Connection reset by peer");
+	if (client){
+		std::string nick = client->getNickname();
+		std::string quitMsg = Reply::from_client(*client, "QUIT", "",
+				"Connection reset by peer");
 		std::set<std::string> chanList = client->getChannels();
-		for (std::set<std::string>::const_iterator it = chanList.begin(); it != chanList.end(); ++it) {
+
+		std::set<std::string>::const_iterator it = chanList.begin();
+		while (it != chanList.end()){
 			Channel* chan = _channels.get_channel(*it);
-			if (!chan) continue;
-			const std::set<std::string> users = chan->getUsers();
-			for (std::set<std::string>::const_iterator uit = users.begin(); uit != users.end(); ++uit) {
-				if (*uit == nick) continue;
-				Client* m = _clients.get_client(*uit);
-				if (m) sndmsg(*m, quitMsg);
+			if (chan){
+				const std::set<std::string> users = chan->getUsers();
+
+				std::set<std::string>::const_iterator uit = users.begin();
+				while (uit != users.end()){
+					if (*uit != nick){
+						Client* member = _clients.get_client(*uit);
+						if (member)
+							sndmsg(*member, quitMsg);
+					}
+					++uit;
+				}
 			}
-			chan->removeUser(nick);
-			if (chan->getUsers().empty())
-				_channels.remove_channel(*it);
+			++it;
+		}
+	}
+	cleanupClient(clientSocket);
+}
+
+// clean up a client connection by socket fd
+void	Server::disconnectClient(int fd){
+	cleanupClient(fd);
+}
+
+// remove a client from all server state and close its socket
+void	Server::cleanupClient(int fd){
+	Client*	client;
+
+	if (fd == _serverSocket)
+		return;
+
+	client = _clients.get_client_fd(fd);
+	if (client){
+		std::string nick = client->getNickname();
+		std::set<std::string> chanList = client->getChannels();
+
+		std::set<std::string>::const_iterator it = chanList.begin();
+		while (it != chanList.end()){
+			Channel* chan = _channels.get_channel(*it);
+			if (chan){
+				chan->removeUser(nick);
+				if (chan->getUsers().empty())
+					_channels.remove_channel(*it);
+			}
+			++it;
 		}
 	}
 
-	_clients.remove_client(clientSocket);
-	_receiveBuffers.erase(clientSocket);
-	_sendBuffers.erase(clientSocket);
-	_peerHostnames.erase(clientSocket);
-	close(clientSocket);
-	_pollFds.erase(_pollFds.begin() + pollIndex);
+	_clients.remove_client(fd);
+	_receiveBuffers.erase(fd);
+	_sendBuffers.erase(fd);
+	_peerHostnames.erase(fd);
 
-	std::cout << "Client disconnected from fd "
-		<< clientSocket << std::endl;
+	std::size_t i = 0;
+	while (i < _pollFds.size()){
+		if (_pollFds[i].fd == fd){
+			close(fd);
+			_pollFds.erase(_pollFds.begin() + i);
+			break;
+		}
+		++i;
+	}
 }
+
 
 // store outgoing data until poll() reports that the socket is ready to write
 void	Server::queueMessage(int clientSocket, const std::string& message){
@@ -387,32 +436,6 @@ bool	Server::sendBufferedData(std::size_t pollIndex){
 int	Server::sndmsg(const Client& clnt, const std::string& msg) {
 	queueMessage(clnt.getFd(), msg);
 	return (0);
-}
-
-void	Server::disconnectClient(int fd) {
-	if (_clients.get_client_fd(fd) == NULL
-		&& _receiveBuffers.find(fd) == _receiveBuffers.end()
-		&& _sendBuffers.find(fd) == _sendBuffers.end()) {
-		for (std::size_t i = 0; i < _pollFds.size(); i++) {
-			if (_pollFds[i].fd == fd) {
-				close(fd);
-				_pollFds.erase(_pollFds.begin() + i);
-				break;
-			}
-		}
-		return;
-	}
-	_clients.remove_client(fd);
-	_receiveBuffers.erase(fd);
-	_sendBuffers.erase(fd);
-	_peerHostnames.erase(fd);
-	for (std::size_t i = 0; i < _pollFds.size(); i++) {
-		if (_pollFds[i].fd == fd) {
-			close(fd);
-			_pollFds.erase(_pollFds.begin() + i);
-			return;
-		}
-	}
 }
 
 // preserve received data between recv() calls until full command lines exist

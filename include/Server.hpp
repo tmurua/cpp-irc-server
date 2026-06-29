@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Server.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: johartma <johartma@student.42berlin.de>    +#+  +:+       +#+        */
+/*   By: tmurua <tmurua@student.42berlin.de>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/04 17:43:29 by tmurua            #+#    #+#             */
-/*   Updated: 2026/06/21 17:10:27 by tmurua           ###   ########.fr       */
+/*   Updated: 2026/06/23 16:10:37 by tmurua           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -49,6 +49,7 @@ private:
 	void	acceptNewClient();
 	bool	readFromClient(std::size_t pollIndex);
 	void	disconnectClient(std::size_t pollIndex);
+	void	cleanupClient(int fd);
 	void	bufferClientInput(int clientSocket, const char* data, 
 						  std::size_t dataLength);
 	void	processClientBuffer(int clientSocket);
