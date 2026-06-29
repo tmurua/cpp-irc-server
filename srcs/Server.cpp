@@ -24,8 +24,18 @@
 #include <netinet/in.h>	// sockaddr_in, htons, INADDR_ANY
 #include <fcntl.h>		// fcntl, F_SETFL, O_NONBLOCK
 #include <poll.h>		// pollfd, POLLIN, POLLOUT
+#include <signal.h>		// signal, SIGPIPE, SIGINT, SIGTERM, SIG_IGN, sig_atomic_t
 #include <arpa/inet.h>	// inet_ntop, INET_ADDRSTRLEN
 #include <csignal>		// signal, SIGPIPE, SIG_IGN
+
+namespace {
+	volatile sig_atomic_t	g_serverRunning = 1;
+
+	void	handleShutdownSignal(int signalNumber){
+		(void)signalNumber;
+		g_serverRunning = 0;
+	}
+}
 
 Server::Server(const std::string& port, const std::string& password)
 	: _port(parsePort(port)), _password(password), _serverSocket(-1),
@@ -78,7 +88,7 @@ bool	Server::isOnlyDigits(const std::string& text) const {
 }
 
 void	Server::start(){
-	signal(SIGPIPE, SIG_IGN);
+	installSignalHandlers();
 	createSocket();
 	enableAddressReuse();
 	bindSocketToPort();
@@ -132,6 +142,13 @@ void	Server::startListening(){
 		throw std::runtime_error("failed to listen for connections");
 }
 
+void	Server::installSignalHandlers(){
+	g_serverRunning = 1;
+	signal(SIGPIPE, SIG_IGN);
+	signal(SIGINT, handleShutdownSignal);
+	signal(SIGTERM, handleShutdownSignal);
+}
+
 // configure the socket, so operations don't make the server wait
 void	Server::setSocketNonBlocking(int socketFd){
 	if (fcntl(socketFd, F_SETFL, O_NONBLOCK) == -1)
@@ -156,13 +173,15 @@ void	Server::runEventLoop(){
 	int			readySockets;
 	std::size_t	i;
 
-	while (true){
+	while (g_serverRunning){
 		// -1 makes poll() wait until at least one watched socket becomes ready
 		readySockets = poll(&_pollFds[0],
 				static_cast<nfds_t>(_pollFds.size()), -1); // nfds_t: nb of fds
-		if (readySockets == -1)
+		if (readySockets == -1){
+			if (g_serverRunning == 0)
+				break;
 			throw std::runtime_error("poll failed");
-
+		}
 		i = 0;
 		while (i < _pollFds.size()){
 			if (handlePollEvent(i) == true)

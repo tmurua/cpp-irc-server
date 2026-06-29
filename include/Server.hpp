@@ -40,6 +40,7 @@ private:
 	void	enableAddressReuse();
 	void	bindSocketToPort();
 	void	startListening();
+	void	installSignalHandlers();
 	void	setSocketNonBlocking(int socketFd);
 	void	addSocketToPoll(int socketFd);
 	void	runEventLoop();
