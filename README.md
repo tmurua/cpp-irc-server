@@ -6,7 +6,7 @@ A C++98 IRC server using non-blocking sockets and a single `poll()` event loop. 
 
 ## This repository
 
-This is Tom Murua's portfolio copy, published with the team's permission. The original repository is [Hekundan/ft_irc](https://github.com/Hekundan/ft_irc), which is currently private. The original authorship and development history are retained.
+This is my copy of the original repository. The original repository is [Hekundan/ft_irc](https://github.com/Hekundan/ft_irc), which is currently private. The original authorship and development history are retained.
 
 ## My contribution
 
